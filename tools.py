@@ -24,8 +24,8 @@ def discover_subreddits(niche, limit=10):
             user_agent="trendforge (by u/yourusername)"
         )
 
-        # Use Reddit's subreddit search
-        results = reddit.subreddits.search_by_name(query=niche, exact=False, include_nsfw=False)
+        # Use Reddit full text search (BETTER than search_by_name)
+        results = reddit.subreddits.search(query=niche, limit=15)
         subreddit_names = [sub.display_name for sub in results]
 
         if not subreddit_names:
