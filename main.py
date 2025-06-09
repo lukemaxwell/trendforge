@@ -94,10 +94,12 @@ if st.session_state["channel_ready"] and st.session_state["selected_subreddits"]
     if st.button("Run Pipeline"):
         with st.spinner("Running TrendForge pipeline..."):
             try:
-                result = Pipeline().run(
-                    st.session_state["channel_description"],
-                    st.session_state["selected_subreddits"]
+                pipeline = Pipeline(
+                    niche=niche_input,
+                    selected_subreddits=st.session_state["selected_subreddits"],
+                    channel_description=st.session_state["channel_description"]
                 )
+                result = pipeline.run()
                 st.success("✅ Pipeline complete!")
                 st.markdown("### 📄 Results:")
                 st.markdown(result)
