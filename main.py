@@ -113,17 +113,31 @@ if st.session_state["channel_ready"] and st.session_state["selected_subreddits"]
     if st.session_state["result"]:
         result = st.session_state["result"]
 
+        # Extract inner text fields safely:
+        trend_summary_text = result.get("Trend Summary") or \
+            result.get("content_ideas", {}).get("trend_summary", {}).get("text", "No data.")
+
+        content_ideas_text = result.get("Content Ideas") or \
+            result.get("content_ideas", {}).get("text", "No data.")
+
+        optimized_titles_text = result.get("Optimized Titles") or \
+            result.get("optimized_titles", {}).get("text", "No data.")
+
+        thumbnail_ideas_text = result.get("Thumbnail Ideas") or \
+            result.get("thumbnail_ideas", {}).get("text", "No data.")
+
+        # Display in markdown:
         st.markdown("### 📊 **Trend Summary**")
-        st.markdown(f"{result.get('Trend Summary', 'No data.')}", unsafe_allow_html=True)
+        st.markdown(trend_summary_text, unsafe_allow_html=True)
 
         st.markdown("### 💡 **Content Ideas**")
-        st.markdown(f"{result.get('Content Ideas', 'No data.')}", unsafe_allow_html=True)
+        st.markdown(content_ideas_text, unsafe_allow_html=True)
 
         st.markdown("### 🧠 **Optimized Titles**")
-        st.markdown(f"{result.get('Optimized Titles', 'No data.')}", unsafe_allow_html=True)
+        st.markdown(optimized_titles_text, unsafe_allow_html=True)
 
         st.markdown("### 🖼️ **Thumbnail Ideas**")
-        st.markdown(f"{result.get('Thumbnail Ideas', 'No data.')}", unsafe_allow_html=True)
+        st.markdown(thumbnail_ideas_text, unsafe_allow_html=True)
 
 # --- New Search ---
 st.divider()
