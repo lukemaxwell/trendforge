@@ -4,154 +4,121 @@ import streamlit as st
 from agents import Pipeline
 from tools import discover_subreddits, extract_channel_info
 
-# Initialize session state
-if "discovered_subreddits" not in st.session_state:
-    st.session_state["discovered_subreddits"] = []
+# --- Streamlit config ---
+st.set_page_config(page_title="TrendForge", page_icon="🔥", layout="wide")
+st.title("🔥 TrendForge - AI-Led Growth for YouTube Creators")
 
+# --- Session State init ---
+if "niche" not in st.session_state:
+    st.session_state["niche"] = ""
+if "subreddits" not in st.session_state:
+    st.session_state["subreddits"] = []
 if "selected_subreddits" not in st.session_state:
     st.session_state["selected_subreddits"] = []
+if "channel_url" not in st.session_state:
+    st.session_state["channel_url"] = ""
+if "channel_description" not in st.session_state:
+    st.session_state["channel_description"] = ""
+if "channel_ready" not in st.session_state:
+    st.session_state["channel_ready"] = False
+if "pipeline_output" not in st.session_state:
+    st.session_state["pipeline_output"] = None
 
-if "pipeline_run" not in st.session_state:
-    st.session_state["pipeline_run"] = False
+# --- Functions ---
+def reset_search():
+    st.session_state["niche"] = ""
+    st.session_state["subreddits"] = []
+    st.session_state["selected_subreddits"] = []
+    st.session_state["channel_url"] = ""
+    st.session_state["channel_description"] = ""
+    st.session_state["channel_ready"] = False
+    st.session_state["pipeline_output"] = None
 
-if "reddit_trends" not in st.session_state:
-    st.session_state["reddit_trends"] = ""
+# --- UI: Niche input ---
+st.header("🕵️‍♂️ Discover Subreddits")
 
-if "google_trends" not in st.session_state:
-    st.session_state["google_trends"] = ""
+niche_input = st.text_input("Enter your niche/topic", value=st.session_state["niche"])
 
-if "youtube_trends" not in st.session_state:
-    st.session_state["youtube_trends"] = ""
+if st.button("🔍 Discover Subreddits"):
+    st.session_state["niche"] = niche_input
+    with st.spinner("Discovering subreddits..."):
+        discovered_subreddits = discover_subreddits(niche_input)
+    st.session_state["subreddits"] = discovered_subreddits
+    st.session_state["selected_subreddits"] = discovered_subreddits  # Auto-select all initially
 
-if "trend_summary" not in st.session_state:
-    st.session_state["trend_summary"] = ""
+# --- UI: Subreddits selection ---
+if st.session_state["subreddits"]:
+    st.write("### Select Subreddits to Analyze:")
+    selected = st.multiselect(
+        "Subreddits:",
+        st.session_state["subreddits"],
+        default=st.session_state["selected_subreddits"]
+    )
+    st.session_state["selected_subreddits"] = selected
+elif st.session_state["niche"]:
+    st.info("No subreddits found — try a broader niche or add manually.")
 
-if "content_plan" not in st.session_state:
-    st.session_state["content_plan"] = ""
+# --- UI: YouTube channel input ---
+st.header("📺 Channel Analysis")
 
-if "optimized_titles" not in st.session_state:
-    st.session_state["optimized_titles"] = ""
+channel_url_input = st.text_input("Enter YouTube channel URL", value=st.session_state["channel_url"])
 
-if "thumbnail_ideas" not in st.session_state:
-    st.session_state["thumbnail_ideas"] = ""
+if st.button("📥 Analyze Channel"):
+    st.session_state["channel_url"] = channel_url_input
+    with st.spinner("Extracting channel info..."):
+        channel_info = extract_channel_info(st.session_state["channel_url"])
+    # PATCHED: store channel_info directly (string)
+    st.session_state["channel_description"] = channel_info
+    st.session_state["channel_ready"] = True
+    st.experimental_rerun()
 
-# App UI
-st.title("📈 TrendForge - AI YouTube Growth Toolkit")
+# --- UI: Channel preview ---
+if st.session_state["channel_ready"]:
+    st.write("### Channel Info:")
+    st.text_area("Channel Description", st.session_state["channel_description"], height=200)
 
-# --- Step 1: User input ---
-st.header("🔍 Enter Niche + YouTube Channel URL")
+# --- UI: Run Pipeline ---
+st.header("🚀 Run Growth Pipeline")
 
-niche = st.text_input("Niche / Topic", value="", placeholder="e.g. Warhammer painting")
-channel_url = st.text_input("YouTube Channel URL (optional)", value="")
-
-if st.button("Discover Subreddits + Extract Channel Info"):
-    if niche.strip() == "":
-        st.warning("Please enter a niche!")
-    else:
-        # Discover subreddits
-        subreddits = discover_subreddits(niche)
-        st.session_state["discovered_subreddits"] = subreddits
-        st.session_state["selected_subreddits"] = subreddits.copy()
-
-        # Extract channel info
-        if channel_url:
-            channel_info = extract_channel_info(channel_url)
-            st.session_state["channel_description"] = channel_info.get("channel_description", "")
-            st.session_state["recent_videos"] = channel_info.get("recent_videos", [])
-        else:
-            st.session_state["channel_description"] = ""
-            st.session_state["recent_videos"] = []
-
-        # Reset pipeline run state
-        st.session_state["pipeline_run"] = False
-
-# --- Step 2: Show channel analysis ---
-if "channel_description" in st.session_state and st.session_state["channel_description"]:
-    st.header("📺 Channel Analysis")
-    st.write(st.session_state["channel_description"])
-
-    st.subheader("Recent Videos")
-    for video in st.session_state["recent_videos"]:
-        st.markdown(f"- [{video['title']}]({video['url']}) | {video.get('view_count', 0)} views")
-
-# --- Step 3: Subreddit selection ---
-if st.session_state["discovered_subreddits"]:
-    st.header("🗂️ Select Subreddits to use")
-
-    selected_subs = []
-    for sub in st.session_state["discovered_subreddits"]:
-        if st.checkbox(sub, value=sub in st.session_state["selected_subreddits"], key=f"checkbox_{sub}"):
-            selected_subs.append(sub)
-
-    st.session_state["selected_subreddits"] = selected_subs
-
-# --- Step 4: Run pipeline ---
-if st.session_state["selected_subreddits"]:
-    if st.button("🚀 Run TrendForge Pipeline"):
+if st.button("🧠 Run Pipeline"):
+    with st.spinner("Running AI pipeline... this may take a minute..."):
         try:
-            # Run pipeline
-            results = Pipeline(
-                niche=niche,
-                selected_subreddits=st.session_state["selected_subreddits"],
-                channel_description=st.session_state.get("channel_description", ""),
+            output = Pipeline(
+                st.session_state["niche"],
+                st.session_state["selected_subreddits"],
+                st.session_state["channel_description"]
             )
-
-            # Store results
-            st.session_state["reddit_trends"] = results.get("reddit_trends", "")
-            st.session_state["google_trends"] = results.get("google_trends", "")
-            st.session_state["youtube_trends"] = results.get("youtube_trends", "")
-            st.session_state["trend_summary"] = results.get("trend_summary", "")
-            st.session_state["content_plan"] = results.get("content_plan", "")
-            st.session_state["optimized_titles"] = results.get("optimized_titles", "")
-            st.session_state["thumbnail_ideas"] = results.get("thumbnail_ideas", "")
-
-            st.session_state["pipeline_run"] = True
-
+            st.session_state["pipeline_output"] = output
         except Exception as e:
             st.error(f"Error running pipeline: {e}")
 
-# --- Step 5: Show results ---
-if st.session_state["pipeline_run"]:
-    st.header("📊 Trends")
+# --- UI: Show Pipeline Output ---
+if st.session_state["pipeline_output"]:
+    output = st.session_state["pipeline_output"]
 
-    st.subheader("📈 Reddit Trends")
-    st.code(st.session_state["reddit_trends"])
+    st.header("📈 Pipeline Results")
 
-    st.subheader("📈 Google Trends")
-    st.code(st.session_state["google_trends"])
+    with st.expander("🗂 Reddit Trends"):
+        st.text(output["reddit_trends"])
 
-    st.subheader("📈 YouTube Trends")
-    st.code(st.session_state["youtube_trends"])
+    with st.expander("🔎 Google Trends"):
+        st.text(output["google_trends"])
 
-    st.header("📝 Trend Summary")
-    st.write(st.session_state["trend_summary"])
+    with st.expander("📺 YouTube Trends"):
+        st.text(output["youtube_trends"])
 
-    st.header("📅 Content Plan")
-    st.write(st.session_state["content_plan"])
+    with st.expander("🧑‍🔬 Trend Summary"):
+        st.text(output["trend_summary"])
 
-    st.header("🏷️ Optimized Titles")
-    st.write(st.session_state["optimized_titles"])
+    with st.expander("🎬 Content Plan"):
+        st.text(output["content_plan"])
 
-    st.header("🖼️ Thumbnail Ideas")
-    st.write(st.session_state["thumbnail_ideas"])
+    with st.expander("📝 Optimized Titles"):
+        st.text(output["optimized_titles"])
 
-# --- New search ---
-if st.button("🔄 New Search", key="new_search_button"):
-    # Reset all session state keys
-    for key in [
-        "discovered_subreddits",
-        "selected_subreddits",
-        "pipeline_run",
-        "reddit_trends",
-        "google_trends",
-        "youtube_trends",
-        "trend_summary",
-        "content_plan",
-        "optimized_titles",
-        "thumbnail_ideas",
-        "channel_description",
-        "recent_videos",
-    ]:
-        st.session_state[key] = []
-        if key == "pipeline_run":
-            st.session_state[key] = False
+    with st.expander("🖼 Thumbnail Ideas"):
+        st.text(output["thumbnail_ideas"])
+
+# --- UI: New Search ---
+st.divider()
+st.button("🔄 New Search", on_click=reset_search, key="new_search_button")
