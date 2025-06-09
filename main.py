@@ -106,6 +106,8 @@ if st.session_state["channel_ready"] and st.session_state["selected_subreddits"]
                 result = pipeline.run()
                 st.session_state["result"] = result
                 st.success("✅ Pipeline complete!")
+            except Exception as e:
+                st.error(f"Error running pipeline: {e}")
 
     # --- Display results ---
     if st.session_state["result"]:
