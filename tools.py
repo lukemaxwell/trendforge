@@ -32,13 +32,13 @@ nltk.download("punkt")
 pytrends = TrendReq(hl="en-US", tz=360)
 
 
-def get_reddit_client():
-    return praw.Reddit(
-        client_id=REDDIT_CLIENT_ID,
-        client_secret=REDDIT_CLIENT_SECRET,
-        user_agent="trendforge/1.0 (by u/your-reddit-username)",
-        check_for_async=False  # Important for Streamlit compatibility
-    )
+
+reddit = praw.Reddit(
+    client_id=st.secrets["REDDIT_CLIENT_ID"],
+    client_secret=st.secrets["REDDIT_CLIENT_SECRET"],
+    user_agent="trendforge/1.0"
+    check_for_async=False  # Important for Streamlit compatibility
+)
 
 
 # Discover subreddits
