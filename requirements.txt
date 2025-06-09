@@ -1,0 +1,10 @@
+streamlit>=1.35.0
+langchain>=0.1.16
+langchain-openai>=0.1.6
+openai>=1.25.0
+python-dotenv>=1.0.1
+praw>=7.7.1
+pytrends>=4.9.2
+nltk>=3.8.1
+yt-dlp>=2024.04.09
+google-api-python-client
