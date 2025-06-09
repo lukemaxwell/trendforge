@@ -1,20 +1,23 @@
 # agents.py
 
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-
-from tools import reddit_trend_search, google_trends_search, youtube_trend_search
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
 
 # --- LLM config ---
 llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
 
-# --- TrendSummaryAgent ---
+# --- Prompt templates ---
 
-TrendSummaryPrompt = ChatPromptTemplate.from_template("""
-You are an expert YouTube strategist.
+# 1️⃣ Trend Summary
+trend_summary_prompt = PromptTemplate.from_template(
+    """
+You are a YouTube trend analyst.
 
-Summarize the following trends into a concise report identifying hot topics and content opportunities.
+Based on the following Reddit trends, Google Trends, and YouTube trends, provide a concise summary of:
+- What topics are hot in this niche
+- What emerging trends you notice
+- What the target audience seems interested in right now
 
 Reddit Trends:
 {reddit_trends}
@@ -25,17 +28,18 @@ Google Trends:
 YouTube Trends:
 {youtube_trends}
 
-Provide 3-5 key insights.
-""")
+Your summary:
+"""
+)
 
-TrendSummaryAgent = TrendSummaryPrompt | llm | StrOutputParser()
+TrendSummaryAgent = LLMChain(llm=llm, prompt=trend_summary_prompt)
 
-# --- PlannerAgent ---
+# 2️⃣ Content Planning
+content_ideas_prompt = PromptTemplate.from_template(
+    """
+You are a YouTube content strategist.
 
-PlannerPrompt = ChatPromptTemplate.from_template("""
-You are an expert YouTube content strategist.
-
-Given this trend summary and this YouTube channel description, generate 5 high-growth video content ideas.
+Based on this Trend Summary and this YouTube Channel description, suggest 5 engaging YouTube video ideas that will likely drive growth and engagement:
 
 Trend Summary:
 {trend_summary}
@@ -43,107 +47,87 @@ Trend Summary:
 Channel Description:
 {channel_description}
 
-For each idea, include:
-- Title idea
-- Short description
-- Suggested format (Short, Long-form, Live, Series, etc.)
-""")
+Video Ideas:
+"""
+)
 
-PlannerAgent = PlannerPrompt | llm | StrOutputParser()
+ContentPlanningAgent = LLMChain(llm=llm, prompt=content_ideas_prompt)
 
-# --- TitleOptimizerAgent ---
+# 3️⃣ Title Optimizer
+title_optimizer_prompt = PromptTemplate.from_template(
+    """
+You are an expert YouTube title copywriter.
 
-TitleOptimizerPrompt = ChatPromptTemplate.from_template("""
-You are an expert YouTube title optimizer.
+Given these content ideas, suggest 2 optimized titles for each idea, designed to maximize clicks and engagement.
 
-Given this content plan, suggest 3 optimized click-worthy titles for each video idea.
+Content Ideas:
+{content_ideas}
 
-Content Plan:
-{content_plan}
+Optimized Titles:
+"""
+)
 
-Format the output clearly.
-""")
+TitleOptimizerAgent = LLMChain(llm=llm, prompt=title_optimizer_prompt)
 
-TitleOptimizerAgent = TitleOptimizerPrompt | llm | StrOutputParser()
-
-# --- ThumbnailIdeaAgent ---
-
-ThumbnailIdeaPrompt = ChatPromptTemplate.from_template("""
+# 4️⃣ Thumbnail Ideas
+thumbnail_ideas_prompt = PromptTemplate.from_template(
+    """
 You are an expert YouTube thumbnail designer.
 
-Given this content plan, suggest 2 strong thumbnail concepts for each video idea.
+Given these content ideas and titles, suggest a compelling thumbnail concept for each video idea — keep it visual, minimal text, highly eye-catching.
 
-Content Plan:
-{content_plan}
+Content Ideas:
+{content_ideas}
 
-Format the output clearly.
-""")
+Optimized Titles:
+{optimized_titles}
 
-ThumbnailIdeaAgent = ThumbnailIdeaPrompt | llm | StrOutputParser()
+Thumbnail Ideas:
+"""
+)
 
-# --- Full Pipeline ---
+ThumbnailIdeaAgent = LLMChain(llm=llm, prompt=thumbnail_ideas_prompt)
 
-def Pipeline(niche, selected_subreddits, channel_description):
-    """Run the full agent pipeline"""
-    print("==== DEBUG: Pipeline called ====")
-    print(f"niche: {niche}")
-    print(f"selected_subreddits: {selected_subreddits}")
-    print(f"channel_description: {channel_description}")
+# --- Pipeline class ---
+class Pipeline:
+    def __init__(self, niche, selected_subreddits, channel_description):
+        self.niche = niche
+        self.selected_subreddits = selected_subreddits
+        self.channel_description = channel_description
 
-    # Step 1: Reddit trends
-    print("==== DEBUG: Running reddit_trend_search ====")
-    reddit_trends = reddit_trend_search(selected_subreddits)
-    print("==== DEBUG: Reddit trends done ====")
+    def run(self):
+        # For now, we simulate the trend data (your tools.py can populate these)
+        reddit_trends = f"Trending topics in {', '.join(self.selected_subreddits)}..."
+        google_trends = f"Top Google Trends for niche {self.niche}..."
+        youtube_trends = f"Trending YouTube topics for niche {self.niche}..."
 
-    # Step 2: Google trends
-    print("==== DEBUG: Running google_trends_search ====")
-    google_trends = google_trends_search(niche)
-    print("==== DEBUG: Google trends done ====")
+        # 1️⃣ Trend Summary
+        trend_summary = TrendSummaryAgent.invoke({
+            "reddit_trends": reddit_trends,
+            "google_trends": google_trends,
+            "youtube_trends": youtube_trends
+        })
 
-    # Step 3: YouTube trends
-    print("==== DEBUG: Running youtube_trend_search ====")
-    youtube_trends = youtube_trend_search(niche)
-    print("==== DEBUG: YouTube trends done ====")
+        # 2️⃣ Content Ideas
+        content_ideas = ContentPlanningAgent.invoke({
+            "trend_summary": trend_summary,
+            "channel_description": self.channel_description
+        })
 
-    # Step 4: Summarize trends
-    print("==== DEBUG: Running TrendSummaryAgent ====")
-    trend_summary = TrendSummaryAgent.invoke({
-        "reddit_trends": reddit_trends,
-        "google_trends": google_trends,
-        "youtube_trends": youtube_trends
-    })
-    print("==== DEBUG: Trend summary done ====")
+        # 3️⃣ Optimized Titles
+        optimized_titles = TitleOptimizerAgent.invoke({
+            "content_ideas": content_ideas
+        })
 
-    # Step 5: Content plan
-    print("==== DEBUG: Running PlannerAgent ====")
-    content_plan = PlannerAgent.invoke({
-        "trend_summary": trend_summary,
-        "channel_description": channel_description
-    })
-    print("==== DEBUG: Content plan done ====")
+        # 4️⃣ Thumbnail Ideas
+        thumbnail_ideas = ThumbnailIdeaAgent.invoke({
+            "content_ideas": content_ideas,
+            "optimized_titles": optimized_titles
+        })
 
-    # Step 6: Title optimization
-    print("==== DEBUG: Running TitleOptimizerAgent ====")
-    optimized_titles = TitleOptimizerAgent.invoke({
-        "content_plan": content_plan
-    })
-    print("==== DEBUG: Optimized titles done ====")
-
-    # Step 7: Thumbnail ideas
-    print("==== DEBUG: Running ThumbnailIdeaAgent ====")
-    thumbnail_ideas = ThumbnailIdeaAgent.invoke({
-        "content_plan": content_plan
-    })
-    print("==== DEBUG: Thumbnail ideas done ====")
-
-    print("==== DEBUG: Pipeline completed ====")
-
-    return {
-        "reddit_trends": reddit_trends,
-        "google_trends": google_trends,
-        "youtube_trends": youtube_trends,
-        "trend_summary": trend_summary,
-        "content_plan": content_plan,
-        "optimized_titles": optimized_titles,
-        "thumbnail_ideas": thumbnail_ideas
-    }
+        return {
+            "Trend Summary": trend_summary,
+            "Content Ideas": content_ideas,
+            "Optimized Titles": optimized_titles,
+            "Thumbnail Ideas": thumbnail_ideas
+        }
