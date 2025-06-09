@@ -4,121 +4,113 @@ import streamlit as st
 from agents import Pipeline
 from tools import discover_subreddits, extract_channel_info
 
-# --- Streamlit config ---
+# --- Page config ---
 st.set_page_config(page_title="TrendForge", page_icon="🔥", layout="wide")
-st.title("🔥 TrendForge - AI-Led Growth for YouTube Creators")
 
-# --- Session State init ---
-if "niche" not in st.session_state:
-    st.session_state["niche"] = ""
-if "subreddits" not in st.session_state:
-    st.session_state["subreddits"] = []
-if "selected_subreddits" not in st.session_state:
-    st.session_state["selected_subreddits"] = []
+# --- Header ---
+st.title("🔥 TrendForge: Your AI Growth Companion for YouTube 🚀")
+st.markdown(
+    """
+**TrendForge** helps YouTube creators grow their channels using the power of **AI** and **trend analysis**.
+
+✨ Analyze your channel  
+📈 Discover hot trends across **Reddit**, **Google**, and **YouTube**  
+🧠 Generate **engaging content ideas**  
+🎨 Suggest **optimized titles** & **thumbnail concepts**  
+🛠 All powered by a multi-agent AI pipeline.
+
+---
+
+### How to use:
+
+1️⃣ Enter your **YouTube Channel URL** → *We'll analyze your current content & audience*  
+2️⃣ Enter your **niche / topic** → *We'll find trending communities & topics for you*  
+3️⃣ Select which **Reddit communities** you want to focus on  
+4️⃣ Click **Run Pipeline** → *Sit back while TrendForge creates your next content strategy!*  
+"""
+)
+
+# --- Session state init ---
 if "channel_url" not in st.session_state:
     st.session_state["channel_url"] = ""
 if "channel_description" not in st.session_state:
     st.session_state["channel_description"] = ""
 if "channel_ready" not in st.session_state:
     st.session_state["channel_ready"] = False
-if "pipeline_output" not in st.session_state:
-    st.session_state["pipeline_output"] = None
-
-# --- Functions ---
-def reset_search():
-    st.session_state["niche"] = ""
+if "subreddits" not in st.session_state:
     st.session_state["subreddits"] = []
+if "selected_subreddits" not in st.session_state:
     st.session_state["selected_subreddits"] = []
+
+# --- Sidebar ---
+with st.sidebar:
+    st.header("🔗 Input Your Channel & Niche")
+    channel_url_input = st.text_input("YouTube Channel URL", value=st.session_state["channel_url"])
+    niche_input = st.text_input("Channel Niche / Topic (e.g. Warhammer, Tiny Painting, Yoga...)")
+
+    # --- Analyze button ---
+    if st.button("📥 Analyze Channel"):
+        st.session_state["channel_url"] = channel_url_input
+        with st.spinner("Extracting channel info..."):
+            channel_info = extract_channel_info(st.session_state["channel_url"])
+        st.session_state["channel_description"] = channel_info
+        st.session_state["channel_ready"] = True
+        st.rerun()
+
+# --- Channel Analysis ---
+st.subheader("📺 Channel Analysis")
+
+if st.session_state["channel_ready"]:
+    st.info(st.session_state["channel_description"])
+else:
+    st.info("Please enter your YouTube Channel URL and click 'Analyze Channel'.")
+
+# --- Subreddit Discovery ---
+if st.session_state["channel_ready"]:
+    st.subheader("🗂 Discover Subreddits")
+
+    if st.button("🔍 Discover Subreddits"):
+        with st.spinner("Discovering subreddits..."):
+            subreddits = discover_subreddits(niche_input)
+        st.session_state["subreddits"] = subreddits
+        st.session_state["selected_subreddits"] = subreddits  # select all by default
+        st.rerun()
+
+    # Display subreddit multiselect if subreddits were discovered
+    if st.session_state["subreddits"]:
+        selected = st.multiselect(
+            "Select subreddits to use for trend analysis:",
+            options=st.session_state["subreddits"],
+            default=st.session_state["selected_subreddits"],
+            key="selected_subreddits"
+        )
+        st.session_state["selected_subreddits"] = selected
+    else:
+        st.info("No subreddits found — try a broader niche or add manually.")
+
+# --- Run pipeline ---
+if st.session_state["channel_ready"] and st.session_state["selected_subreddits"]:
+    st.subheader("🚀 Run AI Pipeline")
+
+    if st.button("Run Pipeline"):
+        with st.spinner("Running TrendForge pipeline..."):
+            try:
+                result = Pipeline().run(
+                    st.session_state["channel_description"],
+                    st.session_state["selected_subreddits"]
+                )
+                st.success("✅ Pipeline complete!")
+                st.markdown("### 📄 Results:")
+                st.markdown(result)
+            except Exception as e:
+                st.error(f"Error running pipeline: {e}")
+
+# --- New Search ---
+st.divider()
+if st.button("🔄 New Search", key="new_search_btn"):
     st.session_state["channel_url"] = ""
     st.session_state["channel_description"] = ""
     st.session_state["channel_ready"] = False
-    st.session_state["pipeline_output"] = None
-
-# --- UI: Niche input ---
-st.header("🕵️‍♂️ Discover Subreddits")
-
-niche_input = st.text_input("Enter your niche/topic", value=st.session_state["niche"])
-
-if st.button("🔍 Discover Subreddits"):
-    st.session_state["niche"] = niche_input
-    with st.spinner("Discovering subreddits..."):
-        discovered_subreddits = discover_subreddits(niche_input)
-    st.session_state["subreddits"] = discovered_subreddits
-    st.session_state["selected_subreddits"] = discovered_subreddits  # Auto-select all initially
-
-# --- UI: Subreddits selection ---
-if st.session_state["subreddits"]:
-    st.write("### Select Subreddits to Analyze:")
-    selected = st.multiselect(
-        "Subreddits:",
-        st.session_state["subreddits"],
-        default=st.session_state["selected_subreddits"]
-    )
-    st.session_state["selected_subreddits"] = selected
-elif st.session_state["niche"]:
-    st.info("No subreddits found — try a broader niche or add manually.")
-
-# --- UI: YouTube channel input ---
-st.header("📺 Channel Analysis")
-
-channel_url_input = st.text_input("Enter YouTube channel URL", value=st.session_state["channel_url"])
-
-if st.button("📥 Analyze Channel"):
-    st.session_state["channel_url"] = channel_url_input
-    with st.spinner("Extracting channel info..."):
-        channel_info = extract_channel_info(st.session_state["channel_url"])
-    # PATCHED: store channel_info directly (string)
-    st.session_state["channel_description"] = channel_info
-    st.session_state["channel_ready"] = True
+    st.session_state["subreddits"] = []
+    st.session_state["selected_subreddits"] = []
     st.rerun()
-
-# --- UI: Channel preview ---
-if st.session_state["channel_ready"]:
-    st.write("### Channel Info:")
-    st.text_area("Channel Description", st.session_state["channel_description"], height=200)
-
-# --- UI: Run Pipeline ---
-st.header("🚀 Run Growth Pipeline")
-
-if st.button("🧠 Run Pipeline"):
-    with st.spinner("Running AI pipeline... this may take a minute..."):
-        try:
-            output = Pipeline(
-                st.session_state["niche"],
-                st.session_state["selected_subreddits"],
-                st.session_state["channel_description"]
-            )
-            st.session_state["pipeline_output"] = output
-        except Exception as e:
-            st.error(f"Error running pipeline: {e}")
-
-# --- UI: Show Pipeline Output ---
-if st.session_state["pipeline_output"]:
-    output = st.session_state["pipeline_output"]
-
-    st.header("📈 Pipeline Results")
-
-    with st.expander("🗂 Reddit Trends"):
-        st.text(output["reddit_trends"])
-
-    with st.expander("🔎 Google Trends"):
-        st.text(output["google_trends"])
-
-    with st.expander("📺 YouTube Trends"):
-        st.text(output["youtube_trends"])
-
-    with st.expander("🧑‍🔬 Trend Summary"):
-        st.text(output["trend_summary"])
-
-    with st.expander("🎬 Content Plan"):
-        st.text(output["content_plan"])
-
-    with st.expander("📝 Optimized Titles"):
-        st.text(output["optimized_titles"])
-
-    with st.expander("🖼 Thumbnail Ideas"):
-        st.text(output["thumbnail_ideas"])
-
-# --- UI: New Search ---
-st.divider()
-st.button("🔄 New Search", on_click=reset_search, key="new_search_button")
