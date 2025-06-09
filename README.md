@@ -1,83 +1,54 @@
-# TrendForge 🚀
+# 🔥 TrendForge
 
-**AI-Powered YouTube Growth Pipeline**
+Your AI Growth Companion for YouTube 🚀
 
-Turn trends into growth — with AI-powered content strategy for YouTube creators.
+TrendForge helps YouTube creators grow their channels using the power of AI and trend analysis.
 
----
-
-## What is TrendForge?
-
-TrendForge helps YouTube creators discover hot trends and generate optimized content plans.
-
-It combines:
-
-✅ Your YouTube channel description + video history  
-✅ Google Trends data  
-✅ Reddit trends (you select the relevant subreddits)  
-✅ YouTube trending ideas  
-
-And produces:
-
-🎯 **Summary of hot topics**  
-🎬 **High-growth YouTube video ideas**  
-📝 **Optimized video titles**  
-🖼️ **Engaging thumbnail ideas**
+✨ Analyze your channel  
+📈 Discover hot trends across **Reddit**, **Google**, and **YouTube**  
+🧠 Generate **engaging content ideas**  
+🎨 Suggest **optimized titles** & **thumbnail concepts**  
+🛠 All powered by a multi-agent AI pipeline (LangChain + LLM + Streamlit).
 
 ---
 
-## Demo
+## How to use:
 
-👉 Coming soon! (Deploy on Streamlit Cloud → instant URL 🚀)
-
----
-
-## How it works
-
-1️⃣ Enter your niche (example: "miniature painting")  
-2️⃣ Provide your YouTube channel URL  
-3️⃣ Select subreddits you want to monitor  
-4️⃣ Click "Run Pipeline"  
-
-TrendForge will:
-
-- Extract your channel info
-- Analyze trends from multiple sources
-- Generate a full content plan
+1️⃣ Enter your **YouTube Channel URL**  
+2️⃣ Enter your **niche / topic**  
+3️⃣ Select which **Reddit communities** you want to focus on  
+4️⃣ Click **Run Pipeline** → *TrendForge generates your content strategy!*  
 
 ---
 
-## Architecture
+## Architecture:
 
-```plaintext
-            +----------------------+
-            |  YouTube Channel URL |
-            +----------------------+
-                       |
-            +--------------------------+
-            |  Extract Channel Info    |
-            +--------------------------+
-                       |
-                       v
- +--------+    +--------+    +--------+
- | Reddit | -> | Google | -> | YouTube|
- | Trends |    | Trends |    | Trends |
- +--------+    +--------+    +--------+
-                       |
-            +--------------------------+
-            |  Trend Summary Agent     |
-            +--------------------------+
-                       |
-            +--------------------------+
-            |  Channel Analysis Agent  |
-            +--------------------------+
-                       |
-            +--------------------------+
-            |  Content Planner Agent   |
-            +--------------------------+
-                       |
-        +-------------+-------------+
-        |                           |
-+-------------------+    +----------------------+
-| Title Optimizer   |    | Thumbnail Idea Agent |
-+-------------------+    +----------------------+
+- Frontend: **Streamlit**  
+- Agents: **LangChain Functions Agents**  
+- Data sources:  
+  - **YouTube API**  
+  - **Reddit API**  
+  - **Google Trends** (via pytrends)  
+- LLM: **OpenAI GPT-4o**  
+
+---
+
+## Run locally:
+
+```bash
+git clone https://github.com/YOUR_GITHUB_ACCOUNT/trendforge.git
+cd trendforge
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Add your secrets to .streamlit/secrets.toml:
+
+[default]
+OPENAI_API_KEY = "sk-..."
+REDDIT_CLIENT_ID = "..."
+REDDIT_CLIENT_SECRET = "..."
+YOUTUBE_API_KEY = "..."
+
+# Run
+streamlit run main.py
