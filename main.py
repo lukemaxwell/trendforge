@@ -81,8 +81,7 @@ if st.session_state["channel_ready"]:
         selected = st.multiselect(
             "Select subreddits to use for trend analysis:",
             options=st.session_state["subreddits"],
-            default=st.session_state["selected_subreddits"],
-            key="selected_subreddits"
+            default=st.session_state.get("selected_subreddits", st.session_state["subreddits"])
         )
         st.session_state["selected_subreddits"] = selected
     else:
