@@ -70,7 +70,7 @@ if st.button("📥 Analyze Channel"):
     # PATCHED: store channel_info directly (string)
     st.session_state["channel_description"] = channel_info
     st.session_state["channel_ready"] = True
-    st.experimental_rerun()
+    st.rerun()
 
 # --- UI: Channel preview ---
 if st.session_state["channel_ready"]:
