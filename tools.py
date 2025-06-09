@@ -1,182 +1,196 @@
 # tools.py
 
 import os
-import logging
 import streamlit as st
-from dotenv import load_dotenv
 import praw
 from pytrends.request import TrendReq
-import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-import openai
-import yt_dlp
+import googleapiclient.discovery
+import re
 
-# Setup logging
-logger = logging.getLogger(__name__)
-
-# Load local .env
-load_dotenv()
-
-# Load keys (Streamlit secrets first, fallback to .env)
+# Load secrets or env vars
 OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 REDDIT_CLIENT_ID = st.secrets.get("REDDIT_CLIENT_ID", os.getenv("REDDIT_CLIENT_ID"))
 REDDIT_CLIENT_SECRET = st.secrets.get("REDDIT_CLIENT_SECRET", os.getenv("REDDIT_CLIENT_SECRET"))
-REDDIT_USER_AGENT = st.secrets.get("REDDIT_USER_AGENT", os.getenv("REDDIT_USER_AGENT"))
+YOUTUBE_API_KEY = st.secrets.get("YOUTUBE_API_KEY", os.getenv("YOUTUBE_API_KEY"))
 
-# Setup NLTK
-nltk.download("stopwords")
-nltk.download("punkt")
+# --- Discover subreddits ---
 
-# Google Trends client
-pytrends = TrendReq(hl="en-US", tz=360)
-
-
-
-reddit = praw.Reddit(
-    client_id=st.secrets["REDDIT_CLIENT_ID"],
-    client_secret=st.secrets["REDDIT_CLIENT_SECRET"],
-    user_agent="trendforge/1.0"
-    check_for_async=False  # Important for Streamlit compatibility
-)
-
-
-# Discover subreddits
-def discover_subreddits(niche: str) -> list[str]:
+def discover_subreddits(niche, limit=10):
+    print(f"DEBUG: Discovering subreddits for niche '{niche}'")
     try:
-        reddit = get_reddit_client()
-        subreddits = []
-        results = reddit.subreddits.search(query=niche, limit=20)
-        for sub in results:
-            if sub.subscribers and sub.subscribers > 1000:
-                subreddits.append(sub.display_name)
-        return subreddits
+        reddit = praw.Reddit(
+            client_id=REDDIT_CLIENT_ID,
+            client_secret=REDDIT_CLIENT_SECRET,
+            user_agent="trendforge (by u/yourusername)"
+        )
+
+        # Use Reddit's subreddit search
+        results = reddit.subreddits.search_by_name(query=niche, exact=False, include_nsfw=False)
+        subreddit_names = [sub.display_name for sub in results]
+
+        if not subreddit_names:
+            print("DEBUG: No subreddits found.")
+            return []
+
+        print(f"DEBUG: Found subreddits: {subreddit_names[:limit]}")
+        return subreddit_names[:limit]
+
     except Exception as e:
-        logger.error(f"Error discovering subreddits: {e}")
+        print(f"ERROR: Failed to discover subreddits: {e}")
         return []
 
-# Reddit trend search
-def reddit_trend_search(subreddits: list[str]) -> str:
+# --- Reddit trend search ---
+
+def reddit_trend_search(subreddits):
+    print(f"DEBUG: Fetching Reddit trends for subreddits: {subreddits}")
+
+    if not subreddits:
+        return "No subreddits provided."
+
     try:
-        reddit = get_reddit_client()
-        combined_titles = ""
+        reddit = praw.Reddit(
+            client_id=REDDIT_CLIENT_ID,
+            client_secret=REDDIT_CLIENT_SECRET,
+            user_agent="trendforge (by u/yourusername)"
+        )
+
+        all_trends = ""
+
         for subreddit_name in subreddits:
+            print(f"DEBUG: Fetching top posts from r/{subreddit_name}")
             subreddit = reddit.subreddit(subreddit_name)
-            for submission in subreddit.hot(limit=10):
-                combined_titles += f"{submission.title}\n"
+            top_posts = subreddit.top("week", limit=10)
 
-        stop_words = set(stopwords.words("english"))
-        word_tokens = word_tokenize(combined_titles.lower())
-        filtered_tokens = [word for word in word_tokens if word.isalnum() and word not in stop_words]
+            trends_text = f"\n\nr/{subreddit_name} Top Posts:\n"
+            for post in top_posts:
+                trends_text += f"- {post.title} ({post.score} upvotes)\n"
 
-        freq = {}
-        for word in filtered_tokens:
-            freq[word] = freq.get(word, 0) + 1
+            all_trends += trends_text
 
-        sorted_freq = sorted(freq.items(), key=lambda item: item[1], reverse=True)
-        top_keywords = sorted_freq[:20]
+        if not all_trends:
+            print("DEBUG: No Reddit trends found.")
+            return "No Reddit trends found."
 
-        result = "\n".join([f"{word}: {count}" for word, count in top_keywords])
-        return result
+        print("DEBUG: Reddit trends fetched successfully.")
+        return all_trends
 
     except Exception as e:
-        logger.error(f"Error in reddit_trend_search: {e}")
-        return "Error fetching Reddit trends."
+        print(f"ERROR: Error fetching Reddit trends: {e}")
+        return f"Error fetching Reddit trends: {e}"
 
-# Google trends search
-def google_trends_search(niche: str) -> str:
+# --- Google Trends search ---
+
+def google_trends_search(niche):
+    print(f"DEBUG: Fetching Google Trends for niche '{niche}'")
     try:
-        kw_list = [niche]
-        pytrends.build_payload(kw_list, cat=0, timeframe="now 7-d", geo="", gprop="")
+        pytrends = TrendReq(hl='en-US', tz=360)
+        pytrends.build_payload([niche], timeframe='today 7-d', geo='')
 
         related_queries_result = pytrends.related_queries()
+        related_queries = []
 
-        trends = ""
-        for kw in kw_list:
-            try:
-                ranked_keywords = related_queries_result[kw]["top"]
-                if ranked_keywords is None:
-                    trends += f"No related queries found for '{kw}'.\n"
-                    continue
-                for index, row in ranked_keywords.iterrows():
-                    trends += f"{row['query']} ({row['value']})\n"
-            except Exception as e:
-                trends += f"Error fetching related queries for '{kw}': {e}\n"
+        if niche in related_queries_result:
+            top_queries = related_queries_result[niche].get("top", None)
+            if top_queries is not None:
+                related_queries = top_queries["query"].tolist()
 
-        return trends
+        if not related_queries:
+            print("DEBUG: No Google Trends found.")
+            return "No Google Trends found."
 
-    except Exception as e:
-        logger.error(f"Error in google_trends_search: {e}")
-        return "Error fetching Google Trends."
-
-# YouTube trends (placeholder)
-def youtube_trend_search(niche: str) -> str:
-    try:
-        mock_trends = [
-            f"{niche} unboxing",
-            f"Top 10 {niche} tips",
-            f"{niche} beginner guide",
-            f"{niche} review",
-            f"{niche} live painting session",
-        ]
-        return "\n".join(mock_trends)
+        print(f"DEBUG: Google Trends fetched successfully: {related_queries}")
+        return "\n".join(related_queries)
 
     except Exception as e:
-        logger.error(f"Error in youtube_trend_search: {e}")
-        return "Error fetching YouTube Trends."
+        print(f"ERROR: Error fetching Google Trends: {e}")
+        return f"Error fetching Google Trends: {e}"
 
-# Channel analysis
-def channel_analysis_tool(channel_description: str) -> str:
+# --- YouTube trend search ---
+
+def youtube_trend_search(niche):
+    print(f"DEBUG: Fetching YouTube trends for niche '{niche}'")
     try:
-        openai.api_key = OPENAI_API_KEY
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are an expert YouTube channel strategist."},
-                {"role": "user", "content": f"Analyze this channel description and summarize its main audience interests and content style:\n\n{channel_description}"}
-            ],
-            temperature=0.7,
-            max_tokens=300,
+        youtube = googleapiclient.discovery.build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+
+        request = youtube.search().list(
+            part="snippet",
+            maxResults=10,
+            q=niche,
+            type="video",
+            order="viewCount",
+            relevanceLanguage="en"
         )
-        return response["choices"][0]["message"]["content"]
+        response = request.execute()
+
+        video_titles = []
+        for item in response.get("items", []):
+            title = item["snippet"]["title"]
+            video_titles.append(title)
+
+        if not video_titles:
+            print("DEBUG: No YouTube trends found.")
+            return "No YouTube trends found."
+
+        print(f"DEBUG: YouTube trends fetched successfully: {video_titles}")
+        return "\n".join(video_titles)
 
     except Exception as e:
-        logger.error(f"Error in channel_analysis_tool: {e}")
-        return "Error analyzing channel."
+        print(f"ERROR: Error fetching YouTube trends: {e}")
+        return f"Error fetching YouTube trends: {e}"
 
-# Extract channel info from URL
-def extract_channel_info(channel_url: str) -> dict:
+# --- YouTube channel extractor ---
+
+def extract_channel_info(channel_url):
+    print(f"DEBUG: Extracting channel info from URL: {channel_url}")
     try:
-        ydl_opts = {
-            'extract_flat': True,
-            'skip_download': True,
-        }
+        youtube = googleapiclient.discovery.build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(channel_url, download=False)
+        # Extract channel ID from URL
+        channel_id = None
+        if "channel/" in channel_url:
+            match = re.search(r"channel/([a-zA-Z0-9_-]+)", channel_url)
+            if match:
+                channel_id = match.group(1)
+        elif "user/" in channel_url:
+            match = re.search(r"user/([a-zA-Z0-9_-]+)", channel_url)
+            if match:
+                username = match.group(1)
+                request = youtube.channels().list(part="id", forUsername=username)
+                response = request.execute()
+                if response["items"]:
+                    channel_id = response["items"][0]["id"]
 
-        channel_description = info.get('description', '')
-        entries = info.get('entries', [])
+        if not channel_id:
+            print("ERROR: Could not extract channel ID from URL.")
+            return "Error: Could not extract channel ID."
 
-        recent_videos = []
-        for entry in entries[:10]:
-            video = {
-                'title': entry.get('title'),
-                'url': entry.get('url'),
-                'view_count': entry.get('view_count'),
-                'like_count': entry.get('like_count'),
-                'comment_count': entry.get('comment_count'),
-            }
-            recent_videos.append(video)
+        # Fetch channel details
+        request = youtube.channels().list(part="snippet,statistics", id=channel_id)
+        response = request.execute()
 
-        return {
-            'channel_description': channel_description,
-            'recent_videos': recent_videos,
-        }
+        if not response["items"]:
+            print("ERROR: No channel data found.")
+            return "Error: No channel data found."
+
+        item = response["items"][0]
+        snippet = item["snippet"]
+        stats = item["statistics"]
+
+        description = snippet.get("description", "")
+        subscribers = stats.get("subscriberCount", "N/A")
+        video_count = stats.get("videoCount", "N/A")
+        view_count = stats.get("viewCount", "N/A")
+
+        channel_info = f"""
+Description: {description}
+
+Subscribers: {subscribers}
+Videos: {video_count}
+Total Views: {view_count}
+"""
+        print("DEBUG: Channel info extracted successfully.")
+        return channel_info
 
     except Exception as e:
-        logger.error(f"Error extracting channel info: {e}")
-        return {
-            'channel_description': '',
-            'recent_videos': [],
-        }
+        print(f"ERROR: Error extracting channel info: {e}")
+        return f"Error extracting channel info: {e}"
