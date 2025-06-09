@@ -101,8 +101,20 @@ if st.session_state["channel_ready"] and st.session_state["selected_subreddits"]
                 )
                 result = pipeline.run()
                 st.success("✅ Pipeline complete!")
-                st.markdown("### 📄 Results:")
-                st.markdown(result)
+
+                # Display results nicely:
+                st.markdown("### 📊 Trend Summary:")
+                st.write(result.get("Trend Summary", "No data."))
+
+                st.markdown("### 🎬 Content Ideas:")
+                st.write(result.get("Content Ideas", "No data."))
+
+                st.markdown("### 📝 Optimized Titles:")
+                st.write(result.get("Optimized Titles", "No data."))
+
+                st.markdown("### 🎨 Thumbnail Ideas:")
+                st.write(result.get("Thumbnail Ideas", "No data."))
+
             except Exception as e:
                 st.error(f"Error running pipeline: {e}")
 
