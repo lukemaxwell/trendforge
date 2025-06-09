@@ -147,10 +147,12 @@ def extract_channel_info(channel_url):
 
         # Extract channel ID from URL
         channel_id = None
+
         if "channel/" in channel_url:
             match = re.search(r"channel/([a-zA-Z0-9_-]+)", channel_url)
             if match:
                 channel_id = match.group(1)
+
         elif "user/" in channel_url:
             match = re.search(r"user/([a-zA-Z0-9_-]+)", channel_url)
             if match:
@@ -159,6 +161,21 @@ def extract_channel_info(channel_url):
                 response = request.execute()
                 if response["items"]:
                     channel_id = response["items"][0]["id"]
+
+        elif "/@" in channel_url:
+            match = re.search(r"/@([a-zA-Z0-9_-]+)", channel_url)
+            if match:
+                username = match.group(1)
+                # Use search to resolve @username → channelId
+                request = youtube.search().list(
+                    part="snippet",
+                    q=username,
+                    type="channel",
+                    maxResults=1
+                )
+                response = request.execute()
+                if response["items"]:
+                    channel_id = response["items"][0]["snippet"]["channelId"]
 
         if not channel_id:
             print("ERROR: Could not extract channel ID from URL.")
