@@ -113,20 +113,21 @@ if st.session_state["channel_ready"] and st.session_state["selected_subreddits"]
     if st.session_state["result"]:
         result = st.session_state["result"]
 
-        # Extract inner text fields safely:
-        trend_summary_text = result.get("Trend Summary") or \
-            result.get("content_ideas", {}).get("trend_summary", {}).get("text", "No data.")
+        # --- Define safe extractor ---
+        def safe_extract_text(section) -> str:
+            if isinstance(section, dict):
+                return section.get("text", "No data.")
+            if isinstance(section, str):
+                return section
+            return "No data."
 
-        content_ideas_text = result.get("Content Ideas") or \
-            result.get("content_ideas", {}).get("text", "No data.")
+        # --- Extract fields ---
+        trend_summary_text = safe_extract_text(result.get("Trend Summary"))
+        content_ideas_text = safe_extract_text(result.get("Content Ideas"))
+        optimized_titles_text = safe_extract_text(result.get("Optimized Titles"))
+        thumbnail_ideas_text = safe_extract_text(result.get("Thumbnail Ideas"))
 
-        optimized_titles_text = result.get("Optimized Titles") or \
-            result.get("optimized_titles", {}).get("text", "No data.")
-
-        thumbnail_ideas_text = result.get("Thumbnail Ideas") or \
-            result.get("thumbnail_ideas", {}).get("text", "No data.")
-
-        # Display in markdown:
+        # --- Display in markdown ---
         st.markdown("### 📊 **Trend Summary**")
         st.markdown(trend_summary_text, unsafe_allow_html=True)
 
