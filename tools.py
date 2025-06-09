@@ -31,13 +31,15 @@ nltk.download("punkt")
 # Google Trends client
 pytrends = TrendReq(hl="en-US", tz=360)
 
-# Safe Reddit client (use inside functions)
+
 def get_reddit_client():
     return praw.Reddit(
         client_id=REDDIT_CLIENT_ID,
         client_secret=REDDIT_CLIENT_SECRET,
-        user_agent=REDDIT_USER_AGENT,
+        user_agent="trendforge/1.0 (by u/your-reddit-username)",
+        check_for_async=False  # Important for Streamlit compatibility
     )
+
 
 # Discover subreddits
 def discover_subreddits(niche: str) -> list[str]:
