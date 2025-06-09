@@ -41,6 +41,8 @@ if "subreddits" not in st.session_state:
     st.session_state["subreddits"] = []
 if "selected_subreddits" not in st.session_state:
     st.session_state["selected_subreddits"] = []
+if "result" not in st.session_state:
+    st.session_state["result"] = None
 
 # --- Sidebar ---
 with st.sidebar:
@@ -55,6 +57,7 @@ with st.sidebar:
             channel_info = extract_channel_info(st.session_state["channel_url"])
         st.session_state["channel_description"] = channel_info
         st.session_state["channel_ready"] = True
+        st.session_state["result"] = None
         st.rerun()
 
 # --- Channel Analysis ---
@@ -74,6 +77,7 @@ if st.session_state["channel_ready"]:
             subreddits = discover_subreddits(niche_input)
         st.session_state["subreddits"] = subreddits
         st.session_state["selected_subreddits"] = subreddits  # select all by default
+        st.session_state["result"] = None
         st.rerun()
 
     # Display subreddit multiselect if subreddits were discovered
@@ -100,23 +104,24 @@ if st.session_state["channel_ready"] and st.session_state["selected_subreddits"]
                     channel_description=st.session_state["channel_description"]
                 )
                 result = pipeline.run()
+                st.session_state["result"] = result
                 st.success("✅ Pipeline complete!")
 
-                # Display results nicely:
-                st.markdown("### 📊 Trend Summary:")
-                st.write(result.get("Trend Summary", "No data."))
+    # --- Display results ---
+    if st.session_state["result"]:
+        result = st.session_state["result"]
 
-                st.markdown("### 🎬 Content Ideas:")
-                st.write(result.get("Content Ideas", "No data."))
+        st.markdown("### 📊 **Trend Summary**")
+        st.markdown(f"{result.get('Trend Summary', 'No data.')}", unsafe_allow_html=True)
 
-                st.markdown("### 📝 Optimized Titles:")
-                st.write(result.get("Optimized Titles", "No data."))
+        st.markdown("### 💡 **Content Ideas**")
+        st.markdown(f"{result.get('Content Ideas', 'No data.')}", unsafe_allow_html=True)
 
-                st.markdown("### 🎨 Thumbnail Ideas:")
-                st.write(result.get("Thumbnail Ideas", "No data."))
+        st.markdown("### 🧠 **Optimized Titles**")
+        st.markdown(f"{result.get('Optimized Titles', 'No data.')}", unsafe_allow_html=True)
 
-            except Exception as e:
-                st.error(f"Error running pipeline: {e}")
+        st.markdown("### 🖼️ **Thumbnail Ideas**")
+        st.markdown(f"{result.get('Thumbnail Ideas', 'No data.')}", unsafe_allow_html=True)
 
 # --- New Search ---
 st.divider()
@@ -126,4 +131,5 @@ if st.button("🔄 New Search", key="new_search_btn"):
     st.session_state["channel_ready"] = False
     st.session_state["subreddits"] = []
     st.session_state["selected_subreddits"] = []
+    st.session_state["result"] = None
     st.rerun()
