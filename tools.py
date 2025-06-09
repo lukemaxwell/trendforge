@@ -15,10 +15,10 @@ import yt_dlp
 # Setup logging
 logger = logging.getLogger(__name__)
 
-# Load local .env (for local dev)
+# Load local .env
 load_dotenv()
 
-# Load keys — Streamlit secrets take priority if present
+# Load keys (Streamlit secrets first, fallback to .env)
 OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 REDDIT_CLIENT_ID = st.secrets.get("REDDIT_CLIENT_ID", os.getenv("REDDIT_CLIENT_ID"))
 REDDIT_CLIENT_SECRET = st.secrets.get("REDDIT_CLIENT_SECRET", os.getenv("REDDIT_CLIENT_SECRET"))
@@ -28,23 +28,25 @@ REDDIT_USER_AGENT = st.secrets.get("REDDIT_USER_AGENT", os.getenv("REDDIT_USER_A
 nltk.download("stopwords")
 nltk.download("punkt")
 
-# Reddit client
-reddit = praw.Reddit(
-    client_id=REDDIT_CLIENT_ID,
-    client_secret=REDDIT_CLIENT_SECRET,
-    user_agent=REDDIT_USER_AGENT,
-)
-
 # Google Trends client
 pytrends = TrendReq(hl="en-US", tz=360)
+
+# Safe Reddit client (use inside functions)
+def get_reddit_client():
+    return praw.Reddit(
+        client_id=REDDIT_CLIENT_ID,
+        client_secret=REDDIT_CLIENT_SECRET,
+        user_agent=REDDIT_USER_AGENT,
+    )
 
 # Discover subreddits
 def discover_subreddits(niche: str) -> list[str]:
     try:
+        reddit = get_reddit_client()
         subreddits = []
         results = reddit.subreddits.search(query=niche, limit=20)
         for sub in results:
-            if sub.subscribers > 1000:
+            if sub.subscribers and sub.subscribers > 1000:
                 subreddits.append(sub.display_name)
         return subreddits
     except Exception as e:
@@ -54,6 +56,7 @@ def discover_subreddits(niche: str) -> list[str]:
 # Reddit trend search
 def reddit_trend_search(subreddits: list[str]) -> str:
     try:
+        reddit = get_reddit_client()
         combined_titles = ""
         for subreddit_name in subreddits:
             subreddit = reddit.subreddit(subreddit_name)
