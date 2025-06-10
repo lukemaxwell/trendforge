@@ -35,6 +35,8 @@ if "pipeline_running" not in st.session_state:
     st.session_state["pipeline_running"] = False
 if "subreddits_found" not in st.session_state:
     st.session_state["subreddits_found"] = []
+if "channel_description" not in st.session_state:
+    st.session_state["channel_description"] = ""
 
 # Sidebar input
 with st.sidebar:
@@ -89,25 +91,24 @@ if st.session_state["pipeline_running"]:
     st.subheader("Analyzing trends and generating content ideas...")
     with st.spinner("Running TrendForge pipeline..."):
         try:
-            # Fetch trends
+            # Gather trend data first:
             reddit_trends = reddit_trend_search(st.session_state["selected_subreddits"])
             google_trends = google_trends_search(niche)
             youtube_trends = youtube_trends_search(niche)
 
-            # Run pipeline
+            # Run pipeline:
             pipeline = Pipeline(
                 niche=niche,
                 selected_subreddits=st.session_state["selected_subreddits"],
                 channel_description=st.session_state.get("channel_description", ""),
             )
-            result = pipeline.run(
-                reddit_trends=reddit_trends,
-                google_trends=google_trends,
-                youtube_trends=youtube_trends,
-            )
+            result = pipeline.run(reddit_trends, google_trends, youtube_trends)
+
+            # Save result:
             st.session_state["result"] = result
             st.session_state["pipeline_running"] = False
             st.session_state["step_status"]["run_pipeline"] = "complete"
+
         except Exception as e:
             logger.error(f"Error running pipeline: {e}")
             st.error(f"Error running pipeline: {e}")
@@ -128,30 +129,27 @@ if (
     trend_summary_text = result.get("trend_summary", "")
     if isinstance(trend_summary_text, dict):
         trend_summary_text = trend_summary_text.get("text", "")
-    st.markdown(trend_summary_text)
+    # Split trend_summary into bullets:
+    summary_lines = trend_summary_text.split("\n")
+    for line in summary_lines:
+        if line.strip():
+            st.markdown(f"- {line.strip()}")
 
     # Content Plan
     content_plan_text = result.get("content_plan", "")
     st.markdown("### 🎬 Content Plan\n")
-    if content_plan_text:
-        st.markdown(content_plan_text)
-    else:
-        st.markdown("_No content plan generated._")
+    st.markdown(content_plan_text)
 
     # Optimized Titles
     titles = result.get("optimized_titles", [])
     st.markdown("### 🧠 Optimized Titles")
-    if isinstance(titles, list) and titles:
+    if isinstance(titles, list):
         for title in titles:
             st.markdown(f"- {title}")
-    else:
-        st.markdown("_No optimized titles generated._")
 
     # Thumbnail Ideas
     thumbnails = result.get("thumbnail_ideas", [])
     st.markdown("### 🎨 Thumbnail Ideas")
-    if isinstance(thumbnails, list) and thumbnails:
+    if isinstance(thumbnails, list):
         for idea in thumbnails:
             st.markdown(f"- {idea}")
-    else:
-        st.markdown("_No thumbnail ideas generated._")
