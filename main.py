@@ -91,9 +91,9 @@ elif st.session_state["main_state"] == "analyzing":
     st.subheader("Analyzing trends and generating content ideas...")
     with st.spinner("Running TrendForge pipeline..."):
         try:
-            # Extract channel info
-            channel_info = extract_channel_info(st.session_state["youtube_url_input"])
-            st.session_state["channel_description"] = channel_info.get("channel_description", "")
+            # Extract channel info (now returns string, not dict)
+            channel_description = extract_channel_info(st.session_state["youtube_url_input"])
+            st.session_state["channel_description"] = channel_description
             st.session_state["step_status"]["channel"] = "complete"
 
             # Run Pipeline
