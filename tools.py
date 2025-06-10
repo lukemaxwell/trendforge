@@ -31,10 +31,9 @@ def discover_subreddits(niche, max_results=10):
     try:
         logging.info(f"Discovering subreddits for niche: {niche}")
 
-        # Simple search using PRAW's subreddit search
+        # Improved search across subreddit metadata (better than search_by_name)
         results = []
-        for subreddit in reddit.subreddits.search_by_name(query=niche, include_nsfw=False, exact=False):
-            # Filter out restricted/private subreddits
+        for subreddit in reddit.subreddits.search(query=niche, limit=20):
             if not subreddit.over18 and not subreddit.quarantine and not subreddit.user_is_banned:
                 results.append(subreddit.display_name)
                 if len(results) >= max_results:
