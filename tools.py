@@ -1,125 +1,132 @@
 # tools.py
-
-import logging
 import os
-import praw
+import logging
+import streamlit as st
+from dotenv import load_dotenv
 from pytrends.request import TrendReq
-import time
+import praw
 import re
 
-# Setup logging
+# Load environment variables
+load_dotenv()
+
+# Configure logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Load API keys from Streamlit secrets or environment variables
-import streamlit as st
-
+# API keys
 OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 REDDIT_CLIENT_ID = st.secrets.get("REDDIT_CLIENT_ID", os.getenv("REDDIT_CLIENT_ID"))
 REDDIT_CLIENT_SECRET = st.secrets.get("REDDIT_CLIENT_SECRET", os.getenv("REDDIT_CLIENT_SECRET"))
 REDDIT_USER_AGENT = st.secrets.get("REDDIT_USER_AGENT", os.getenv("REDDIT_USER_AGENT"))
 
-# Initialize PRAW Reddit client
-reddit = praw.Reddit(
-    client_id=REDDIT_CLIENT_ID,
-    client_secret=REDDIT_CLIENT_SECRET,
-    user_agent=REDDIT_USER_AGENT
-)
+# Initialize Reddit
+try:
+    reddit = praw.Reddit(
+        client_id=REDDIT_CLIENT_ID,
+        client_secret=REDDIT_CLIENT_SECRET,
+        user_agent=REDDIT_USER_AGENT
+    )
+    reddit_readable = True
+    logger.info("✅ Reddit API initialized")
+except Exception as e:
+    reddit_readable = False
+    logger.warning(f"⚠️ Reddit init failed: {e}")
 
-# --- Subreddit discovery ---
-def discover_subreddits(niche, max_results=10):
-    """Discover relevant subreddits for a given niche."""
-    try:
-        logging.info(f"Discovering subreddits for niche: {niche}")
-
-        # Improved search across subreddit metadata (better than search_by_name)
-        results = []
-        for subreddit in reddit.subreddits.search(query=niche, limit=20):
-            if not subreddit.over18 and not subreddit.quarantine and not subreddit.user_is_banned:
-                results.append(subreddit.display_name)
-                if len(results) >= max_results:
-                    break
-
-        logging.info(f"Found subreddits: {results}")
-        return results
-
-    except Exception as e:
-        logging.error(f"Error discovering subreddits: {e}")
+# --- Discover Subreddits ---
+def discover_subreddits(niche, limit=15):
+    logger.info(f"🔍 Discovering subreddits for niche: {niche}")
+    if not reddit_readable:
+        logger.warning("Reddit API not available. Returning empty subreddit list.")
         return []
 
-# --- Reddit trends search ---
-def reddit_trend_search(selected_subreddits, limit=10):
-    """Fetch trending topics from selected subreddits."""
     try:
-        logging.info(f"Fetching Reddit trends from: {selected_subreddits}")
-        trends = {}
-
-        for subreddit_name in selected_subreddits:
-            subreddit = reddit.subreddit(subreddit_name)
-            titles = []
-            for post in subreddit.hot(limit=limit):
-                titles.append(post.title)
-
-            trends[subreddit_name] = titles
-            time.sleep(1)  # be nice to Reddit
-
-        # Combine into a simple text summary
-        trend_summary = ""
-        for sub, titles in trends.items():
-            trend_summary += f"\n### r/{sub}\n"
-            for title in titles:
-                trend_summary += f"- {title}\n"
-
-        return trend_summary
-
+        subreddits = []
+        for subreddit in reddit.subreddits.search_by_name(niche, exact=False):
+            subreddits.append(subreddit.display_name)
+            if len(subreddits) >= limit:
+                break
+        logger.info(f"✅ Found subreddits: {subreddits}")
+        return subreddits
     except Exception as e:
-        logging.error(f"Error fetching Reddit trends: {e}")
+        logger.error(f"Error discovering subreddits: {e}")
+        return []
+
+# --- Extract Channel Info ---
+def extract_channel_info(channel_url):
+    logger.info(f"📺 Extracting channel info from URL: {channel_url}")
+
+    # Extract channel ID
+    match = re.search(r"(?:/channel/|/c/|/user/|@)([^/?]+)", channel_url)
+    if not match:
+        raise ValueError("Could not extract channel ID from URL")
+
+    channel_id = match.group(1)
+    logger.info(f"✅ Extracted channel ID: {channel_id}")
+
+    # Simulate channel info (replace with YouTube Data API if needed)
+    simulated_description = f"Simulated channel description for {channel_id}. This channel focuses on amazing content about {channel_id}'s niche."
+
+    return {
+        "channel_id": channel_id,
+        "channel_description": simulated_description
+    }
+
+# --- Reddit Trend Search ---
+def reddit_trend_search(subreddits, limit=10):
+    logger.info(f"🔍 Searching Reddit trends for subreddits: {subreddits}")
+    if not reddit_readable:
+        logger.warning("Reddit API not available. Returning empty trends.")
+        return "Reddit trends unavailable."
+
+    trends = []
+    try:
+        for sub in subreddits:
+            subreddit = reddit.subreddit(sub)
+            for post in subreddit.hot(limit=limit):
+                trends.append(post.title)
+        logger.info(f"✅ Retrieved {len(trends)} Reddit trends.")
+        return "\n".join(f"- {trend}" for trend in trends)
+    except Exception as e:
+        logger.error(f"Error fetching Reddit trends: {e}")
         return "Error fetching Reddit trends."
 
-# --- Google trends search ---
+# --- Google Trends Search ---
 def google_trends_search(niche):
-    """Fetch related Google trends for the niche."""
+    logger.info(f"🔍 Searching Google trends for niche: {niche}")
     try:
-        logging.info(f"Fetching Google trends for niche: {niche}")
-        pytrends = TrendReq()
-        pytrends.build_payload([niche], timeframe='now 7-d')
-
+        pytrends = TrendReq(hl="en-US", tz=360)
+        pytrends.build_payload([niche], timeframe="now 7-d")
         related_queries_result = pytrends.related_queries()
-        related_queries = []
+        top_queries = []
 
-        for kw, data in related_queries_result.items():
-            if data and data.get("top") is not None:
-                df = data["top"]
-                related_queries.extend(df["query"].tolist())
+        for key, value in related_queries_result.items():
+            try:
+                top = value["top"]
+                if top is not None:
+                    top_queries.extend(top["query"].tolist())
+            except Exception as e:
+                logger.warning(f"Warning parsing Google trends: {e}")
 
-        # De-duplicate
-        related_queries = list(dict.fromkeys(related_queries))
+        if not top_queries:
+            logger.info("No Google trends found.")
+            return "No Google trends found."
 
-        # Combine to text
-        summary = ""
-        for query in related_queries:
-            summary += f"- {query}\n"
-
-        return summary or "No related queries found."
-
+        logger.info(f"✅ Retrieved {len(top_queries)} Google trends.")
+        return "\n".join(f"- {query}" for query in top_queries)
     except Exception as e:
-        logging.error(f"Error fetching Google trends: {e}")
+        logger.error(f"Error fetching Google trends: {e}")
         return "Error fetching Google trends."
 
-# --- Extract YouTube channel info ---
-def extract_channel_info(yt_url):
-    """Extract YouTube channel description (placeholder)."""
-    try:
-        logging.info(f"Extracting channel info for URL: {yt_url}")
-
-        # Example: extract channel ID (if needed in future real API)
-        channel_id_match = re.search(r"(?:\/channel\/|\/c\/|\/user\/|youtube\.com\/@)([^\/?\s]+)", yt_url)
-        channel_id = channel_id_match.group(1) if channel_id_match else "unknown"
-
-        # Dummy channel description for now
-        channel_description = f"Extracted channel description for URL: {yt_url} (channel ID: {channel_id})"
-
-        return {"channel_description": channel_description}
-
-    except Exception as e:
-        logging.error(f"Error extracting channel info: {e}")
-        return {"channel_description": ""}
+# --- YouTube Trends Search (Simulated) ---
+def youtube_trends_search(niche):
+    logger.info(f"🔍 Simulating YouTube trends for niche: {niche}")
+    # Replace with real YouTube Data API if needed
+    simulated_trends = [
+        f"Top YouTube video idea for {niche} #1",
+        f"Top YouTube video idea for {niche} #2",
+        f"Top YouTube video idea for {niche} #3",
+        f"Top YouTube video idea for {niche} #4",
+        f"Top YouTube video idea for {niche} #5",
+    ]
+    return "\n".join(f"- {trend}" for trend in simulated_trends)
