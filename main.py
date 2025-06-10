@@ -2,17 +2,6 @@ import streamlit as st
 from agents import Pipeline
 from tools import discover_subreddits, extract_channel_info
 
-# Improved safe_extract_text
-def safe_extract_text(value):
-    if isinstance(value, dict) and "text" in value:
-        return value["text"]
-    elif isinstance(value, list):
-        return "\n".join(str(item) for item in value)
-    elif isinstance(value, str):
-        return value
-    else:
-        return ""
-
 # Initialize session state
 if "step_status" not in st.session_state:
     st.session_state["step_status"] = {
@@ -81,14 +70,27 @@ st.title("🔥 TrendForge: AI Growth Engine for YouTube Creators")
 # Main flow
 if st.session_state["step_status"]["step3"] == "complete" and st.session_state["result"]:
     st.success("✅ Pipeline complete!")
+
     st.write("### 📊 Trend Summary")
-    st.markdown(safe_extract_text(st.session_state["result"].get("trend_summary")))
+    st.markdown(st.session_state["result"].get("trend_summary", {}).get("text", ""))
+
     st.write("### 🎬 Content Plan")
-    st.markdown(safe_extract_text(st.session_state["result"].get("content_ideas")))
+    content_ideas = st.session_state["result"].get("content_ideas", [])
+    if isinstance(content_ideas, list):
+        for idea in content_ideas:
+            st.markdown(f"- {idea}")
+
     st.write("### 🧠 Optimized Titles")
-    st.markdown(safe_extract_text(st.session_state["result"].get("optimized_titles")))
+    optimized_titles = st.session_state["result"].get("optimized_titles", [])
+    if isinstance(optimized_titles, list):
+        for title in optimized_titles:
+            st.markdown(f"- {title}")
+
     st.write("### 🎨 Thumbnail Ideas")
-    st.markdown(safe_extract_text(st.session_state["result"].get("thumbnail_ideas")))
+    thumbnail_ideas = st.session_state["result"].get("thumbnail_ideas", [])
+    if isinstance(thumbnail_ideas, list):
+        for idea in thumbnail_ideas:
+            st.markdown(f"- {idea}")
 
 elif st.session_state["pipeline_running"]:
     # Show analyzing message while pipeline is running
