@@ -42,10 +42,25 @@ def discover_subreddits(niche, limit=15):
 
     try:
         subreddits = []
-        for subreddit in reddit.subreddits.search_by_name(niche, exact=False):
-            subreddits.append(subreddit.display_name)
-            if len(subreddits) >= limit:
-                break
+        # Use search() instead of search_by_name
+        search_results = list(reddit.subreddits.search(query=niche, limit=limit))
+        for sr in search_results:
+            subreddits.append(sr.display_name)
+
+        # Fallback for common niches
+        if len(subreddits) == 0:
+            if "warhammer" in niche.lower() or "miniature" in niche.lower():
+                subreddits = [
+                    "Warhammer",
+                    "Warhammer40k",
+                    "PaintingWarhammer",
+                    "minipainting",
+                    "miniatures",
+                    "AgeOfSigmar",
+                    "WarhammerFantasy"
+                ]
+                logger.info("✅ Using fallback subreddits for Warhammer niche.")
+
         logger.info(f"✅ Found subreddits: {subreddits}")
         return subreddits
     except Exception as e:
@@ -129,4 +144,5 @@ def youtube_trends_search(niche):
         f"Top YouTube video idea for {niche} #4",
         f"Top YouTube video idea for {niche} #5",
     ]
+    logger.info("✅ Simulated YouTube trends ready.")
     return "\n".join(f"- {trend}" for trend in simulated_trends)
