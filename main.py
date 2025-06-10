@@ -89,12 +89,22 @@ if st.session_state["pipeline_running"]:
     st.subheader("Analyzing trends and generating content ideas...")
     with st.spinner("Running TrendForge pipeline..."):
         try:
+            # Fetch trends
+            reddit_trends = reddit_trend_search(st.session_state["selected_subreddits"])
+            google_trends = google_trends_search(niche)
+            youtube_trends = youtube_trends_search(niche)
+
+            # Run pipeline
             pipeline = Pipeline(
                 niche=niche,
                 selected_subreddits=st.session_state["selected_subreddits"],
                 channel_description=st.session_state.get("channel_description", ""),
             )
-            result = pipeline.run()
+            result = pipeline.run(
+                reddit_trends=reddit_trends,
+                google_trends=google_trends,
+                youtube_trends=youtube_trends,
+            )
             st.session_state["result"] = result
             st.session_state["pipeline_running"] = False
             st.session_state["step_status"]["run_pipeline"] = "complete"
@@ -123,18 +133,25 @@ if (
     # Content Plan
     content_plan_text = result.get("content_plan", "")
     st.markdown("### 🎬 Content Plan\n")
-    st.markdown(content_plan_text)
+    if content_plan_text:
+        st.markdown(content_plan_text)
+    else:
+        st.markdown("_No content plan generated._")
 
     # Optimized Titles
     titles = result.get("optimized_titles", [])
     st.markdown("### 🧠 Optimized Titles")
-    if isinstance(titles, list):
+    if isinstance(titles, list) and titles:
         for title in titles:
             st.markdown(f"- {title}")
+    else:
+        st.markdown("_No optimized titles generated._")
 
     # Thumbnail Ideas
     thumbnails = result.get("thumbnail_ideas", [])
     st.markdown("### 🎨 Thumbnail Ideas")
-    if isinstance(thumbnails, list):
+    if isinstance(thumbnails, list) and thumbnails:
         for idea in thumbnails:
             st.markdown(f"- {idea}")
+    else:
+        st.markdown("_No thumbnail ideas generated._")
