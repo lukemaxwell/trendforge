@@ -32,6 +32,9 @@ if "selected_subreddits" not in st.session_state:
 if "result" not in st.session_state:
     st.session_state["result"] = None
 
+if "main_step_progress" not in st.session_state:
+    st.session_state["main_step_progress"] = ""
+
 # App Title & Intro
 st.title("🔥 TrendForge: AI Growth Engine for YouTube Creators")
 
@@ -54,6 +57,8 @@ with st.sidebar:
         st.session_state["step_status"]["subreddits"] = "running"
         st.session_state["step_status"]["pipeline"] = "pending"
         st.session_state["result"] = None
+        st.session_state["main_step_progress"] = ""
+        st.session_state["main_state"] = "idle"
 
         try:
             st.session_state["discovered_subreddits"] = discover_subreddits(niche)
@@ -75,6 +80,7 @@ with st.sidebar:
         logging.info("=== Step 2: Running pipeline ===")
         st.session_state["step_status"]["pipeline"] = "running"
         st.session_state["result"] = None
+        st.session_state["main_step_progress"] = ""
         st.session_state["main_state"] = "analyzing"
 
 # Main Pane
@@ -97,23 +103,86 @@ if st.session_state["main_state"] == "idle":
 
 elif st.session_state["main_state"] == "analyzing":
     st.subheader("Analyzing trends and generating content ideas...")
+
+    progress_text = st.session_state["main_step_progress"]
+    if progress_text:
+        st.info(progress_text)
+
     with st.spinner("Running TrendForge pipeline..."):
         try:
-            logging.info("=== Step 3: Extracting channel info ===")
+            # STEP 1: Extract channel info
+            st.session_state["main_step_progress"] = "Step 1/3: Extracting channel info..."
+            st.experimental_rerun()
+
+        except st.script_run_context.StopException:
+            raise
+
+        except Exception as e:
+            logging.error(f"Error running pipeline: {e}")
+            st.error(f"Error running pipeline: {e}")
+            st.session_state["step_status"]["pipeline"] = f"error ({str(e)})"
+            st.session_state["main_state"] = "idle"
+
+elif st.session_state["main_state"] == "extract_channel":
+    st.subheader("Analyzing trends and generating content ideas...")
+    st.info(st.session_state["main_step_progress"])
+
+    with st.spinner("Running TrendForge pipeline..."):
+        try:
             channel_description = extract_channel_info(st.session_state["youtube_url_input"])
             logging.info(f"Extracted channel description: {channel_description[:100]}...")
             st.session_state["channel_description"] = channel_description
             st.session_state["step_status"]["channel"] = "complete"
 
-            logging.info("=== Step 4: Initializing Pipeline ===")
+            # Move to next step
+            st.session_state["main_step_progress"] = "Step 2/3: Initializing pipeline..."
+            st.session_state["main_state"] = "init_pipeline"
+            st.experimental_rerun()
+
+        except st.script_run_context.StopException:
+            raise
+
+        except Exception as e:
+            logging.error(f"Error extracting channel info: {e}")
+            st.error(f"Error extracting channel info: {e}")
+            st.session_state["step_status"]["channel"] = f"error ({str(e)})"
+            st.session_state["main_state"] = "idle"
+
+elif st.session_state["main_state"] == "init_pipeline":
+    st.subheader("Analyzing trends and generating content ideas...")
+    st.info(st.session_state["main_step_progress"])
+
+    with st.spinner("Running TrendForge pipeline..."):
+        try:
             pipeline = Pipeline(
                 niche=st.session_state["niche_input"],
                 selected_subreddits=st.session_state["selected_subreddits"],
                 channel_description=st.session_state["channel_description"]
             )
-            logging.info("Pipeline initialized. Running Pipeline.run()...")
+            logging.info("Pipeline initialized.")
 
-            result = pipeline.run()
+            # Move to next step
+            st.session_state["pipeline"] = pipeline
+            st.session_state["main_step_progress"] = "Step 3/3: Running pipeline..."
+            st.session_state["main_state"] = "run_pipeline"
+            st.experimental_rerun()
+
+        except st.script_run_context.StopException:
+            raise
+
+        except Exception as e:
+            logging.error(f"Error initializing pipeline: {e}")
+            st.error(f"Error initializing pipeline: {e}")
+            st.session_state["step_status"]["pipeline"] = f"error ({str(e)})"
+            st.session_state["main_state"] = "idle"
+
+elif st.session_state["main_state"] == "run_pipeline":
+    st.subheader("Analyzing trends and generating content ideas...")
+    st.info(st.session_state["main_step_progress"])
+
+    with st.spinner("Running TrendForge pipeline..."):
+        try:
+            result = st.session_state["pipeline"].run()
 
             logging.info("Pipeline run complete.")
             logging.info(f"Pipeline result: {result}")
@@ -121,6 +190,9 @@ elif st.session_state["main_state"] == "analyzing":
             st.session_state["result"] = result
             st.session_state["step_status"]["pipeline"] = "complete"
             st.session_state["main_state"] = "done"
+
+        except st.script_run_context.StopException:
+            raise
 
         except Exception as e:
             logging.error(f"Error running pipeline: {e}")
@@ -175,5 +247,6 @@ elif st.session_state["main_state"] == "done":
         st.session_state["selected_subreddits"] = []
         st.session_state["discovered_subreddits"] = []
         st.session_state["result"] = None
+        st.session_state["main_step_progress"] = ""
         st.session_state["main_state"] = "idle"
         st.rerun()
