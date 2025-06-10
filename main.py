@@ -60,13 +60,12 @@ if st.sidebar.button("🔍 Find Subreddits"):
 # Sidebar select subreddits
 if st.session_state["discovered_subreddits"]:
     st.sidebar.header("2️⃣ Select Subreddits")
-    selected_subs = st.sidebar.multiselect(
+    st.sidebar.multiselect(
         "Choose subreddits to analyze:",
         st.session_state["discovered_subreddits"],
         default=st.session_state["selected_subreddits"],
         key="selected_subreddits"
     )
-    st.session_state["selected_subreddits"] = selected_subs
 
 # Sidebar run pipeline button
 st.sidebar.header("3️⃣ Run Pipeline")
@@ -94,6 +93,7 @@ if st.sidebar.button("🔄 New Search"):
 # Show progress or results
 if st.session_state["step_status"] == "running":
     st.info("Analyzing trends and generating content ideas...")
+
     try:
         # Run pipeline
         pipeline = Pipeline(
