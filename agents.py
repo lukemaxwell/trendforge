@@ -1,164 +1,200 @@
+# agents.py
+import logging
 from langchain_openai import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
 
-# Initialize LLM
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Initialize the LLM
 llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
 
-# Trend Summary Chain
-trend_summary_prompt = PromptTemplate.from_template("""
-You are an expert YouTube content strategist.
+# --- Trend Summary Agent ---
+trend_summary_prompt = ChatPromptTemplate.from_template("""
+You are a YouTube trend analyst.
 
-Here are the current trends:
+Given the following trends from Reddit, Google, and YouTube, write a concise executive summary of the key hot topics, emerging trends, and opportunities in this niche.
 
-Reddit Trends:
+### Reddit Trends
 {reddit_trends}
 
-Google Trends:
+### Google Trends
 {google_trends}
 
-YouTube Trends:
+### YouTube Trends
 {youtube_trends}
 
-Channel Description:
+### Channel Description
 {channel_description}
 
-Generate a concise summary of the hot topics and emerging trends in this niche that are suitable for YouTube content. Focus on what viewers are currently interested in.
+Instructions:
+- Summarize clearly for a YouTube content creator
+- Use plain English
+- Highlight what is hot right now
+- Highlight emerging trends
+- Suggest what type of content creators should focus on
+- Do NOT include generic phrases like "as an AI language model"
+- Keep it short, easy to scan
 
-Respond in this format:
-
-Trend Summary:
-[Your text here]
+Output format:
+Trend Summary: <your summary here>
 """)
 
-trend_summary_chain = LLMChain(llm=llm, prompt=trend_summary_prompt)
+TrendSummaryAgent = LLMChain(
+    llm=llm,
+    prompt=trend_summary_prompt,
+    verbose=True
+)
 
-# Content Ideas Chain
-content_ideas_prompt = PromptTemplate.from_template("""
+# --- Content Plan Agent ---
+content_plan_prompt = ChatPromptTemplate.from_template("""
 You are an expert YouTube content strategist.
 
-Based on this trend summary:
+Given the following Trend Summary and Channel Description, suggest 5 creative, specific video ideas for this channel that would likely perform well.
 
+### Trend Summary
 {trend_summary}
 
-Generate 5 YouTube content ideas that would perform well. Each idea should be a short title or concept.
+### Channel Description
+{channel_description}
 
-Respond in this format:
+Instructions:
+- Return 5 video ideas as bullet points
+- Make them creative and aligned with the trends
+- Target the interests of the audience implied by the trends and channel
+- Do NOT return explanations — just the ideas
 
-Content Ideas:
-1. Idea 1
-2. Idea 2
-3. Idea 3
-4. Idea 4
-5. Idea 5
+Output format:
+- Idea 1
+- Idea 2
+- Idea 3
+- Idea 4
+- Idea 5
 """)
 
-content_ideas_chain = LLMChain(llm=llm, prompt=content_ideas_prompt)
+ContentPlanAgent = LLMChain(
+    llm=llm,
+    prompt=content_plan_prompt,
+    verbose=True
+)
 
-# Optimized Titles Chain
-optimized_titles_prompt = PromptTemplate.from_template("""
-You are an expert YouTube content strategist.
+# --- Optimized Titles Agent ---
+optimized_titles_prompt = ChatPromptTemplate.from_template("""
+You are a YouTube title optimization expert.
 
-Here are 5 content ideas:
+Given the following Content Plan and Trend Summary, suggest 5 optimized, click-worthy YouTube video titles.
 
-{content_ideas}
+### Content Plan
+{content_plan}
 
-For each idea, write an optimized YouTube video title that is highly clickable and engaging.
+### Trend Summary
+{trend_summary}
 
-Respond in this format:
+Instructions:
+- Return 5 optimized titles
+- Make them punchy and engaging
+- Use good YouTube title conventions
+- Do NOT add explanations
 
-Optimized Titles:
-1. Title 1
-2. Title 2
-3. Title 3
-4. Title 4
-5. Title 5
+Output format:
+- Title 1
+- Title 2
+- Title 3
+- Title 4
+- Title 5
 """)
 
-optimized_titles_chain = LLMChain(llm=llm, prompt=optimized_titles_prompt)
+OptimizedTitlesAgent = LLMChain(
+    llm=llm,
+    prompt=optimized_titles_prompt,
+    verbose=True
+)
 
-# Thumbnail Ideas Chain
-thumbnail_ideas_prompt = PromptTemplate.from_template("""
-You are an expert YouTube content strategist.
+# --- Thumbnail Ideas Agent ---
+thumbnail_ideas_prompt = ChatPromptTemplate.from_template("""
+You are a YouTube thumbnail designer.
 
-Here are 5 content ideas:
+Given the following Content Plan and Trend Summary, suggest 5 thumbnail ideas for these videos.
 
-{content_ideas}
+### Content Plan
+{content_plan}
 
-For each idea, suggest a creative thumbnail concept that will attract clicks.
+### Trend Summary
+{trend_summary}
 
-Respond in this format:
+Instructions:
+For each idea:
+1. Provide a short thumbnail text overlay suggestion
+2. Describe any visual elements, colors, or effects to include
 
-Thumbnail Ideas:
-1. Idea 1
-2. Idea 2
-3. Idea 3
-4. Idea 4
-5. Idea 5
+Format your output like this:
+
+Thumbnail 1 Title
+- Visual description
+
+Thumbnail 2 Title
+- Visual description
+
+...
+
+Do NOT add explanations or preambles — just give the list.
+
 """)
 
-thumbnail_ideas_chain = LLMChain(llm=llm, prompt=thumbnail_ideas_prompt)
+ThumbnailIdeasAgent = LLMChain(
+    llm=llm,
+    prompt=thumbnail_ideas_prompt,
+    verbose=True
+)
 
-# Pipeline Class
+# --- Pipeline ---
 class Pipeline:
     def __init__(self, niche, selected_subreddits, channel_description):
         self.niche = niche
         self.selected_subreddits = selected_subreddits
         self.channel_description = channel_description
 
-    def run(self):
-        print(f"--- Running Pipeline ---")
-        print(f"Niche: {self.niche}")
-        print(f"Selected subreddits: {self.selected_subreddits}")
-        print(f"Channel description: {self.channel_description}")
-
-        # Step 1: Trend Summary
-        trend_summary_result = trend_summary_chain.run(
-            reddit_trends=", ".join(self.selected_subreddits),
-            google_trends=f"Top Google Trends for niche {self.niche}...",
-            youtube_trends=f"Trending YouTube topics for niche {self.niche}...",
+    def run(self, reddit_trends, google_trends, youtube_trends):
+        # --- Trend Summary ---
+        logger.info("🟢 Generating trend summary...")
+        trend_summary_response = TrendSummaryAgent.run(
+            reddit_trends=reddit_trends,
+            google_trends=google_trends,
+            youtube_trends=youtube_trends,
             channel_description=self.channel_description
         )
-        print(f"Trend Summary Result:\n{trend_summary_result}\n")
+        logger.info("✅ Trend summary generated.")
 
-        # Step 2: Content Ideas
-        content_ideas_result = content_ideas_chain.run(
-            trend_summary=trend_summary_result
+        # --- Content Plan ---
+        logger.info("🟢 Generating content plan...")
+        content_plan_response = ContentPlanAgent.run(
+            trend_summary=trend_summary_response,
+            channel_description=self.channel_description
         )
-        print(f"Content Ideas Result:\n{content_ideas_result}\n")
+        logger.info("✅ Content plan generated.")
 
-        # Step 3: Optimized Titles
-        optimized_titles_result = optimized_titles_chain.run(
-            content_ideas=content_ideas_result
+        # --- Optimized Titles ---
+        logger.info("🟢 Generating optimized titles...")
+        optimized_titles_response = OptimizedTitlesAgent.run(
+            content_plan=content_plan_response,
+            trend_summary=trend_summary_response
         )
-        print(f"Optimized Titles Result:\n{optimized_titles_result}\n")
+        logger.info("✅ Optimized titles generated.")
 
-        # Step 4: Thumbnail Ideas
-        thumbnail_ideas_result = thumbnail_ideas_chain.run(
-            content_ideas=content_ideas_result
+        # --- Thumbnail Ideas ---
+        logger.info("🟢 Generating thumbnail ideas...")
+        thumbnail_ideas_response = ThumbnailIdeasAgent.run(
+            content_plan=content_plan_response,
+            trend_summary=trend_summary_response
         )
-        print(f"Thumbnail Ideas Result:\n{thumbnail_ideas_result}\n")
+        logger.info("✅ Thumbnail ideas generated.")
 
-        # Assemble the result
-        result = {
-            "trend_summary": {
-                "text": trend_summary_result
-            },
-            "content_ideas": self._extract_list(content_ideas_result),
-            "optimized_titles": self._extract_list(optimized_titles_result),
-            "thumbnail_ideas": self._extract_list(thumbnail_ideas_result),
+        # Return all results
+        return {
+            "trend_summary": trend_summary_response,
+            "content_plan": content_plan_response,
+            "optimized_titles": optimized_titles_response,
+            "thumbnail_ideas": thumbnail_ideas_response
         }
-
-        print(f"--- Pipeline Complete ---\n")
-        return result
-
-    def _extract_list(self, text_block):
-        # Helper to parse numbered lists from LLM output
-        lines = text_block.strip().split("\n")
-        extracted = []
-        for line in lines:
-            if line.strip() and (line.strip()[0].isdigit() or line.strip().startswith("-")):
-                # Remove number or dash prefix
-                item = line.split(".", 1)[-1].strip() if "." in line else line[1:].strip()
-                extracted.append(item)
-        return extracted
