@@ -58,8 +58,7 @@ if st.sidebar.button("🔍 Find Subreddits"):
 
 if st.sidebar.button("📺 Analyze Channel"):
     try:
-        channel_info = extract_channel_info(channel_url)
-        st.session_state["channel_description"] = channel_info.get("channel_description", "")
+        st.session_state["channel_description"] = extract_channel_info(channel_url)
         st.session_state["step_status"]["step2"] = "complete"
     except Exception as e:
         st.error(f"Error analyzing channel: {e}")
