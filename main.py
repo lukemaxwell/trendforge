@@ -102,7 +102,7 @@ elif st.session_state["pipeline_running"]:
             st.session_state["result"] = result
             st.session_state["pipeline_running"] = False
             st.session_state["step_status"]["step3"] = "complete"
-            st.experimental_rerun()
+            st.rerun()
         except Exception as e:
             st.error(f"Error running pipeline: {e}")
             st.session_state["pipeline_running"] = False
@@ -116,7 +116,7 @@ elif st.session_state["step_status"]["step2"] == "complete":
         st.session_state["pipeline_running"] = True
         st.session_state["step_status"]["step3"] = "running"
         st.session_state["result"] = None
-        st.experimental_rerun()
+        st.rerun()
 
 else:
     # Initial instructions
