@@ -1,206 +1,130 @@
-# main.py
-
 import streamlit as st
 from agents import Pipeline
 from tools import discover_subreddits, extract_channel_info
 
-# --- Page config ---
-st.set_page_config(page_title="TrendForge", page_icon="🔥", layout="wide")
+# Helper to safely extract text
+def safe_extract_text(value):
+    if isinstance(value, dict) and "text" in value:
+        return value["text"]
+    elif isinstance(value, str):
+        return value
+    else:
+        return ""
 
-# --- Page Header ---
-st.title("🔥 TrendForge: Your AI Growth Companion for YouTube 🚀")
-st.markdown(
-    """
-**TrendForge** helps YouTube creators grow their channels using **AI** and **trend analysis**.
-
-✨ Analyze your channel  
-📈 Discover hot trends across **Reddit**, **Google**, and **YouTube**  
-🧠 Generate **engaging content ideas**  
-🎨 Suggest **optimized titles** & **thumbnail concepts**  
-🛠 All powered by a multi-agent AI pipeline.
-
----
-
-### How to use:
-
-**Step 1️⃣** Enter your YouTube Channel URL and Niche  
-**Step 2️⃣** Discover Subreddits  
-**Step 3️⃣** Run AI Pipeline  
-"""
-)
-
-# --- Session state init ---
-if "channel_url" not in st.session_state:
-    st.session_state["channel_url"] = ""
-if "channel_description" not in st.session_state:
-    st.session_state["channel_description"] = ""
-if "subreddits" not in st.session_state:
-    st.session_state["subreddits"] = []
-if "selected_subreddits" not in st.session_state:
-    st.session_state["selected_subreddits"] = []
-if "result" not in st.session_state:
-    st.session_state["result"] = None
-if "pipeline_running" not in st.session_state:
-    st.session_state["pipeline_running"] = False
-if "trigger_pipeline" not in st.session_state:
-    st.session_state["trigger_pipeline"] = False
+# Initialize session state
 if "step_status" not in st.session_state:
     st.session_state["step_status"] = {
         "step1": "pending",
         "step2": "pending",
         "step3": "pending"
     }
+if "selected_subreddits" not in st.session_state:
+    st.session_state["selected_subreddits"] = []
+if "result" not in st.session_state:
+    st.session_state["result"] = None
+if "pipeline_running" not in st.session_state:
+    st.session_state["pipeline_running"] = False
+if "channel_description" not in st.session_state:
+    st.session_state["channel_description"] = ""
+if "discovered_subreddits" not in st.session_state:
+    st.session_state["discovered_subreddits"] = []
 
-# --- Sidebar: Step Flow ---
-with st.sidebar:
-    st.header("⚙️ TrendForge Setup")
+# App title and description
+st.set_page_config(page_title="TrendForge", page_icon="🔥")
+st.sidebar.title("🔥 TrendForge")
+st.sidebar.markdown("""
+Grow your YouTube channel with AI-powered content ideas.
 
-    # --- Step 1 ---
-    st.subheader("Step 1️⃣ Channel & Niche")
-    channel_url_input = st.text_input("YouTube Channel URL", value=st.session_state["channel_url"])
-    niche_input = st.text_input("Channel Niche / Topic (e.g. Warhammer, Tiny Painting, Yoga...)")
+**How it works:**  
+1️⃣ Analyze your niche and channel  
+2️⃣ Discover hot trends on Reddit, Google, YouTube  
+3️⃣ Generate content ideas, optimized titles, thumbnail ideas  
+""")
 
-    if st.button("📥 Analyze Channel"):
-        st.session_state["channel_url"] = channel_url_input
-        with st.spinner("Extracting channel info..."):
-            channel_info = extract_channel_info(st.session_state["channel_url"])
-        st.session_state["channel_description"] = channel_info
-        st.session_state["step_status"]["step1"] = "complete"
-        st.session_state["step_status"]["step2"] = "pending"
-        st.session_state["step_status"]["step3"] = "pending"
-        st.session_state["result"] = None
-        st.session_state["subreddits"] = []
-        st.session_state["selected_subreddits"] = []
-        st.session_state["pipeline_running"] = False
-        st.session_state["trigger_pipeline"] = False
-        st.rerun()
+# Sidebar inputs
+niche_input = st.sidebar.text_input("Enter your niche", "")
+channel_url = st.sidebar.text_input("YouTube channel URL (optional)", "")
 
-    # --- Step 2 ---
-    if st.session_state["step_status"]["step1"] == "complete":
-        st.subheader("Step 2️⃣ Discover Subreddits")
-        if st.button("🔍 Discover Subreddits"):
-            with st.spinner("Discovering subreddits..."):
-                subreddits = discover_subreddits(niche_input)
-            st.session_state["subreddits"] = subreddits
-            st.session_state["selected_subreddits"] = subreddits  # select all by default
-            st.session_state["step_status"]["step2"] = "complete"
-            st.session_state["step_status"]["step3"] = "pending"
-            st.session_state["result"] = None
-            st.session_state["pipeline_running"] = False
-            st.session_state["trigger_pipeline"] = False
-            st.rerun()
+# Step indicators
+st.sidebar.markdown("### Progress")
+for step, status in st.session_state["step_status"].items():
+    icon = "✅" if status == "complete" else "⏳" if status == "running" else "⚪️"
+    st.sidebar.write(f"{icon} {step.capitalize()}")
 
-        if st.session_state["subreddits"]:
-            selected = st.multiselect(
-                "Select subreddits to use for trend analysis:",
-                options=st.session_state["subreddits"],
-                default=st.session_state.get("selected_subreddits", st.session_state["subreddits"]),
-                key="selected_subreddits_widget"
-            )
-            st.session_state["selected_subreddits"] = selected
-        else:
-            st.info("No subreddits found — try a broader niche or add manually.")
+# Buttons in sidebar
+if st.sidebar.button("🔍 Find Subreddits"):
+    st.session_state["discovered_subreddits"] = discover_subreddits(niche_input)
+    st.session_state["step_status"]["step1"] = "complete"
 
-    # --- Step 3 ---
-    if st.session_state["step_status"]["step2"] == "complete" and st.session_state["selected_subreddits"]:
-        st.subheader("Step 3️⃣ Run AI Pipeline")
-        if st.button("🚀 Run Pipeline"):
-            st.session_state["pipeline_running"] = True
-            st.session_state["trigger_pipeline"] = True
-            st.session_state["step_status"]["step3"] = "running"
-            st.session_state["result"] = None
-            st.rerun()
-
-    # --- Progress Summary ---
-    st.divider()
-    st.subheader("Progress")
-    for step, status in st.session_state["step_status"].items():
-        status_icon = "✅" if status == "complete" else "⏳" if status == "running" else "⬜"
-        step_label = {
-            "step1": "Step 1️⃣ Channel & Niche",
-            "step2": "Step 2️⃣ Discover Subreddits",
-            "step3": "Step 3️⃣ Run AI Pipeline"
-        }[step]
-        st.write(f"{status_icon} {step_label}")
-
-    # --- New Search ---
-    st.divider()
-    if st.button("🔄 New Search", key="new_search_btn"):
-        st.session_state["channel_url"] = ""
-        st.session_state["channel_description"] = ""
-        st.session_state["subreddits"] = []
-        st.session_state["selected_subreddits"] = []
-        st.session_state["result"] = None
-        st.session_state["pipeline_running"] = False
-        st.session_state["trigger_pipeline"] = False
-        st.session_state["step_status"] = {
-            "step1": "pending",
-            "step2": "pending",
-            "step3": "pending"
-        }
-        st.rerun()
-
-# --- Main Pane Progress Flow ---
-if st.session_state["step_status"]["step1"] == "pending":
-    st.info("👉 Please start with **Step 1** in the sidebar to Analyze Channel.")
-
-elif st.session_state["step_status"]["step1"] == "complete" and st.session_state["step_status"]["step2"] == "pending":
-    st.info("✅ Channel analyzed! Now proceed to **Step 2** in sidebar: Discover Subreddits.")
-
-elif st.session_state["step_status"]["step2"] == "complete" and st.session_state["step_status"]["step3"] == "pending":
-    st.info("✅ Subreddits selected! Now proceed to **Step 3** in sidebar: Run Pipeline.")
-
-elif st.session_state["step_status"]["step3"] == "running":
-    st.info("🚀 Running TrendForge pipeline... please wait...")
-
-# --- Run pipeline logic ---
-if st.session_state["trigger_pipeline"]:
+if st.sidebar.button("📺 Analyze Channel"):
     try:
-        pipeline = Pipeline(
-            niche=niche_input,
-            selected_subreddits=st.session_state["selected_subreddits"],
-            channel_description=st.session_state["channel_description"]
-        )
-        result = pipeline.run()
-        st.session_state["result"] = result
-        st.session_state["pipeline_running"] = False
-        st.session_state["trigger_pipeline"] = False
-        st.session_state["step_status"]["step3"] = "complete"
-        st.success("✅ Pipeline complete!")
-        st.rerun()
+        channel_info = extract_channel_info(channel_url)
+        st.session_state["channel_description"] = channel_info.get("channel_description", "")
+        st.session_state["step_status"]["step2"] = "complete"
     except Exception as e:
-        st.error(f"Error running pipeline: {e}")
-        st.session_state["pipeline_running"] = False
-        st.session_state["trigger_pipeline"] = False
-        st.session_state["step_status"]["step3"] = "pending"
+        st.error(f"Error analyzing channel: {e}")
 
-# --- Display Results ---
-if st.session_state["result"]:
-    result = st.session_state["result"]
+# Subreddit selection
+if st.session_state["discovered_subreddits"]:
+    selected = st.sidebar.multiselect(
+        "Select subreddits for trend mining:",
+        st.session_state["discovered_subreddits"],
+        default=st.session_state["selected_subreddits"],
+        key="selected_subreddits_widget"
+    )
+    st.session_state["selected_subreddits"] = selected
 
-    def safe_extract_text(section) -> str:
-        if isinstance(section, dict):
-            return section.get("text", "No data.")
-        if isinstance(section, str):
-            return section
-        return "No data."
+# Main content area
+st.title("🔥 TrendForge: AI Growth Engine for YouTube Creators")
 
-    trend_summary_text = safe_extract_text(result.get("Trend Summary"))
-    content_ideas_text = safe_extract_text(result.get("Content Ideas"))
-    optimized_titles_text = safe_extract_text(result.get("Optimized Titles"))
-    thumbnail_ideas_text = safe_extract_text(result.get("Thumbnail Ideas"))
+# Main flow
+if st.session_state["step_status"]["step3"] == "complete" and st.session_state["result"]:
+    st.success("✅ Pipeline complete!")
+    st.write("### 📊 Trend Summary")
+    st.markdown(safe_extract_text(st.session_state["result"].get("trend_summary")))
+    st.write("### 🎬 Content Plan")
+    st.markdown(safe_extract_text(st.session_state["result"].get("content_ideas")))
+    st.write("### 🧠 Optimized Titles")
+    st.markdown(safe_extract_text(st.session_state["result"].get("optimized_titles")))
+    st.write("### 🎨 Thumbnail Ideas")
+    st.markdown(safe_extract_text(st.session_state["result"].get("thumbnail_ideas")))
 
-    st.subheader("📺 Channel Analysis")
-    st.info(st.session_state["channel_description"])
+elif st.session_state["pipeline_running"]:
+    # Show analyzing message while pipeline is running
+    st.info("🚀 Analyzing trends... please wait...")
+    with st.spinner("Running TrendForge pipeline..."):
+        try:
+            pipeline = Pipeline(
+                niche=niche_input,
+                selected_subreddits=st.session_state["selected_subreddits"],
+                channel_description=st.session_state["channel_description"]
+            )
+            result = pipeline.run()
+            st.session_state["result"] = result
+            st.session_state["pipeline_running"] = False
+            st.session_state["step_status"]["step3"] = "complete"
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Error running pipeline: {e}")
+            st.session_state["pipeline_running"] = False
+            st.session_state["step_status"]["step3"] = "pending"
 
-    st.subheader("📊 Trend Summary")
-    st.markdown(trend_summary_text, unsafe_allow_html=True)
+elif st.session_state["step_status"]["step2"] == "complete":
+    # Ready to run pipeline
+    st.write("### Step 3: Run TrendForge Pipeline")
+    st.write("Click below to generate your AI-powered content plan:")
+    if st.button("🚀 Run Pipeline"):
+        st.session_state["pipeline_running"] = True
+        st.session_state["step_status"]["step3"] = "running"
+        st.session_state["result"] = None
+        st.experimental_rerun()
 
-    st.subheader("💡 Content Ideas")
-    st.markdown(content_ideas_text, unsafe_allow_html=True)
-
-    st.subheader("🧠 Optimized Titles")
-    st.markdown(optimized_titles_text, unsafe_allow_html=True)
-
-    st.subheader("🖼️ Thumbnail Ideas")
-    st.markdown(thumbnail_ideas_text, unsafe_allow_html=True)
+else:
+    # Initial instructions
+    st.write("### Welcome to TrendForge!")
+    st.markdown("""
+**Steps:**  
+1️⃣ Enter your niche and click *Find Subreddits*  
+2️⃣ (Optional) Enter your YouTube channel URL and click *Analyze Channel*  
+3️⃣ Select subreddits and click *Run Pipeline* to generate your AI-powered content plan 🚀  
+""")
