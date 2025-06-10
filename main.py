@@ -34,8 +34,6 @@ if "channel_url" not in st.session_state:
     st.session_state["channel_url"] = ""
 if "channel_description" not in st.session_state:
     st.session_state["channel_description"] = ""
-if "channel_ready" not in st.session_state:
-    st.session_state["channel_ready"] = False
 if "subreddits" not in st.session_state:
     st.session_state["subreddits"] = []
 if "selected_subreddits" not in st.session_state:
@@ -46,6 +44,12 @@ if "pipeline_running" not in st.session_state:
     st.session_state["pipeline_running"] = False
 if "trigger_pipeline" not in st.session_state:
     st.session_state["trigger_pipeline"] = False
+if "step_status" not in st.session_state:
+    st.session_state["step_status"] = {
+        "step1": "pending",
+        "step2": "pending",
+        "step3": "pending"
+    }
 
 # --- Sidebar: Step Flow ---
 with st.sidebar:
@@ -61,7 +65,9 @@ with st.sidebar:
         with st.spinner("Extracting channel info..."):
             channel_info = extract_channel_info(st.session_state["channel_url"])
         st.session_state["channel_description"] = channel_info
-        st.session_state["channel_ready"] = True
+        st.session_state["step_status"]["step1"] = "complete"
+        st.session_state["step_status"]["step2"] = "pending"
+        st.session_state["step_status"]["step3"] = "pending"
         st.session_state["result"] = None
         st.session_state["subreddits"] = []
         st.session_state["selected_subreddits"] = []
@@ -70,13 +76,15 @@ with st.sidebar:
         st.rerun()
 
     # --- Step 2 ---
-    if st.session_state["channel_ready"]:
+    if st.session_state["step_status"]["step1"] == "complete":
         st.subheader("Step 2️⃣ Discover Subreddits")
         if st.button("🔍 Discover Subreddits"):
             with st.spinner("Discovering subreddits..."):
                 subreddits = discover_subreddits(niche_input)
             st.session_state["subreddits"] = subreddits
             st.session_state["selected_subreddits"] = subreddits  # select all by default
+            st.session_state["step_status"]["step2"] = "complete"
+            st.session_state["step_status"]["step3"] = "pending"
             st.session_state["result"] = None
             st.session_state["pipeline_running"] = False
             st.session_state["trigger_pipeline"] = False
@@ -94,43 +102,59 @@ with st.sidebar:
             st.info("No subreddits found — try a broader niche or add manually.")
 
     # --- Step 3 ---
-    if st.session_state["channel_ready"] and st.session_state["selected_subreddits"]:
+    if st.session_state["step_status"]["step2"] == "complete" and st.session_state["selected_subreddits"]:
         st.subheader("Step 3️⃣ Run AI Pipeline")
         if st.button("🚀 Run Pipeline"):
             st.session_state["pipeline_running"] = True
-            st.session_state["trigger_pipeline"] = True  # flag to trigger actual run below
+            st.session_state["trigger_pipeline"] = True
+            st.session_state["step_status"]["step3"] = "running"
             st.session_state["result"] = None
             st.rerun()
+
+    # --- Progress Summary ---
+    st.divider()
+    st.subheader("Progress")
+    for step, status in st.session_state["step_status"].items():
+        status_icon = "✅" if status == "complete" else "⏳" if status == "running" else "⬜"
+        step_label = {
+            "step1": "Step 1️⃣ Channel & Niche",
+            "step2": "Step 2️⃣ Discover Subreddits",
+            "step3": "Step 3️⃣ Run AI Pipeline"
+        }[step]
+        st.write(f"{status_icon} {step_label}")
 
     # --- New Search ---
     st.divider()
     if st.button("🔄 New Search", key="new_search_btn"):
         st.session_state["channel_url"] = ""
         st.session_state["channel_description"] = ""
-        st.session_state["channel_ready"] = False
         st.session_state["subreddits"] = []
         st.session_state["selected_subreddits"] = []
         st.session_state["result"] = None
         st.session_state["pipeline_running"] = False
         st.session_state["trigger_pipeline"] = False
+        st.session_state["step_status"] = {
+            "step1": "pending",
+            "step2": "pending",
+            "step3": "pending"
+        }
         st.rerun()
 
 # --- Main Pane Progress Flow ---
-if not st.session_state["channel_ready"]:
+if st.session_state["step_status"]["step1"] == "pending":
     st.info("👉 Please start with **Step 1** in the sidebar to Analyze Channel.")
 
-elif st.session_state["pipeline_running"]:
-    st.info("🚀 Running TrendForge pipeline... please wait...")
-
-elif st.session_state["channel_ready"] and not st.session_state["subreddits"]:
+elif st.session_state["step_status"]["step1"] == "complete" and st.session_state["step_status"]["step2"] == "pending":
     st.info("✅ Channel analyzed! Now proceed to **Step 2** in sidebar: Discover Subreddits.")
 
-elif st.session_state["channel_ready"] and st.session_state["selected_subreddits"] and not st.session_state["result"]:
+elif st.session_state["step_status"]["step2"] == "complete" and st.session_state["step_status"]["step3"] == "pending":
     st.info("✅ Subreddits selected! Now proceed to **Step 3** in sidebar: Run Pipeline.")
+
+elif st.session_state["step_status"]["step3"] == "running":
+    st.info("🚀 Running TrendForge pipeline... please wait...")
 
 # --- Run pipeline logic ---
 if st.session_state["trigger_pipeline"]:
-    # Actually run the pipeline
     try:
         pipeline = Pipeline(
             niche=niche_input,
@@ -141,11 +165,14 @@ if st.session_state["trigger_pipeline"]:
         st.session_state["result"] = result
         st.session_state["pipeline_running"] = False
         st.session_state["trigger_pipeline"] = False
+        st.session_state["step_status"]["step3"] = "complete"
         st.success("✅ Pipeline complete!")
+        st.rerun()
     except Exception as e:
         st.error(f"Error running pipeline: {e}")
         st.session_state["pipeline_running"] = False
         st.session_state["trigger_pipeline"] = False
+        st.session_state["step_status"]["step3"] = "pending"
 
 # --- Display Results ---
 if st.session_state["result"]:
