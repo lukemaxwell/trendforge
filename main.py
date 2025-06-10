@@ -1,6 +1,10 @@
 import streamlit as st
+import logging
 from tools import discover_subreddits, extract_channel_info
 from agents import Pipeline
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Safe text extractor
 def safe_extract_text(section):
@@ -46,14 +50,17 @@ with st.sidebar:
     youtube_url = st.text_input("YouTube Channel URL", key="youtube_url_input")
 
     if st.button("🔍 Find Subreddits"):
+        logging.info("=== Step 1: Finding subreddits ===")
         st.session_state["step_status"]["subreddits"] = "running"
         st.session_state["step_status"]["pipeline"] = "pending"
         st.session_state["result"] = None
 
         try:
             st.session_state["discovered_subreddits"] = discover_subreddits(niche)
+            logging.info(f"Discovered subreddits: {st.session_state['discovered_subreddits']}")
             st.session_state["step_status"]["subreddits"] = "complete"
         except Exception as e:
+            logging.error(f"Error discovering subreddits: {e}")
             st.session_state["discovered_subreddits"] = []
             st.session_state["step_status"]["subreddits"] = f"error ({str(e)})"
 
@@ -65,6 +72,7 @@ with st.sidebar:
         )
 
     if st.button("📊 Run Pipeline"):
+        logging.info("=== Step 2: Running pipeline ===")
         st.session_state["step_status"]["pipeline"] = "running"
         st.session_state["result"] = None
         st.session_state["main_state"] = "analyzing"
@@ -91,24 +99,31 @@ elif st.session_state["main_state"] == "analyzing":
     st.subheader("Analyzing trends and generating content ideas...")
     with st.spinner("Running TrendForge pipeline..."):
         try:
-            # Extract channel info (now returns string, not dict)
+            logging.info("=== Step 3: Extracting channel info ===")
             channel_description = extract_channel_info(st.session_state["youtube_url_input"])
+            logging.info(f"Extracted channel description: {channel_description[:100]}...")
             st.session_state["channel_description"] = channel_description
             st.session_state["step_status"]["channel"] = "complete"
 
-            # Run Pipeline
+            logging.info("=== Step 4: Initializing Pipeline ===")
             pipeline = Pipeline(
                 niche=st.session_state["niche_input"],
                 selected_subreddits=st.session_state["selected_subreddits"],
                 channel_description=st.session_state["channel_description"]
             )
+            logging.info("Pipeline initialized. Running Pipeline.run()...")
+
             result = pipeline.run()
+
+            logging.info("Pipeline run complete.")
+            logging.info(f"Pipeline result: {result}")
 
             st.session_state["result"] = result
             st.session_state["step_status"]["pipeline"] = "complete"
             st.session_state["main_state"] = "done"
 
         except Exception as e:
+            logging.error(f"Error running pipeline: {e}")
             st.error(f"Error running pipeline: {e}")
             st.session_state["step_status"]["pipeline"] = f"error ({str(e)})"
             st.session_state["main_state"] = "idle"
@@ -151,6 +166,7 @@ elif st.session_state["main_state"] == "done":
     st.divider()
     if st.button("🔄 New Search", key="new_search_button"):
         # Reset state
+        logging.info("Resetting app to new search.")
         st.session_state["step_status"] = {
             "subreddits": "pending",
             "channel": "pending",
