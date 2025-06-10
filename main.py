@@ -1,164 +1,163 @@
-from langchain_openai import ChatOpenAI
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
+import streamlit as st
+from tools import discover_subreddits, extract_channel_info
+from agents import Pipeline
 
-# Initialize LLM
-llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
+# Safe text extractor
+def safe_extract_text(section):
+    if isinstance(section, str):
+        return section
+    elif isinstance(section, dict) and "text" in section:
+        return section["text"]
+    else:
+        return str(section)
 
-# Trend Summary Chain
-trend_summary_prompt = PromptTemplate.from_template("""
-You are an expert YouTube content strategist.
+# App Config
+st.set_page_config(page_title="🔥 TrendForge: AI Growth Engine for YouTube Creators", page_icon="🔥", layout="wide")
 
-Here are the current trends:
+# Initialize Session State
+if "step_status" not in st.session_state:
+    st.session_state["step_status"] = {
+        "subreddits": "pending",
+        "channel": "pending",
+        "pipeline": "pending"
+    }
 
-Reddit Trends:
-{reddit_trends}
+if "selected_subreddits" not in st.session_state:
+    st.session_state["selected_subreddits"] = []
 
-Google Trends:
-{google_trends}
+if "result" not in st.session_state:
+    st.session_state["result"] = None
 
-YouTube Trends:
-{youtube_trends}
+# App Title & Intro
+st.title("🔥 TrendForge: AI Growth Engine for YouTube Creators")
 
-Channel Description:
-{channel_description}
+# Sidebar
+with st.sidebar:
+    st.header("🚀 Pipeline Steps")
+    st.markdown(f"**Subreddit Discovery:** {st.session_state['step_status']['subreddits']}")
+    st.markdown(f"**Channel Analysis:** {st.session_state['step_status']['channel']}")
+    st.markdown(f"**Pipeline:** {st.session_state['step_status']['pipeline']}")
 
-Generate a concise summary of the hot topics and emerging trends in this niche that are suitable for YouTube content. Focus on what viewers are currently interested in.
+    st.divider()
 
-Respond in this format:
+    st.header("🎬 Inputs")
+    niche = st.text_input("Niche (e.g. Warhammer, Travel Vlogs, Fitness)", key="niche_input")
 
-Trend Summary:
-[Your text here]
-""")
+    youtube_url = st.text_input("YouTube Channel URL", key="youtube_url_input")
 
-trend_summary_chain = LLMChain(llm=llm, prompt=trend_summary_prompt)
+    if st.button("🔍 Find Subreddits"):
+        st.session_state["step_status"]["subreddits"] = "running"
+        st.session_state["step_status"]["pipeline"] = "pending"
+        st.session_state["result"] = None
 
-# Content Ideas Chain
-content_ideas_prompt = PromptTemplate.from_template("""
-You are an expert YouTube content strategist.
+        try:
+            st.session_state["discovered_subreddits"] = discover_subreddits(niche)
+            st.session_state["step_status"]["subreddits"] = "complete"
+        except Exception as e:
+            st.session_state["discovered_subreddits"] = []
+            st.session_state["step_status"]["subreddits"] = f"error ({str(e)})"
 
-Based on this trend summary:
+    if "discovered_subreddits" in st.session_state:
+        st.session_state["selected_subreddits"] = st.multiselect(
+            "Select Subreddits to Analyze",
+            st.session_state["discovered_subreddits"],
+            default=st.session_state["discovered_subreddits"]
+        )
 
-{trend_summary}
+    if st.button("📊 Run Pipeline"):
+        st.session_state["step_status"]["pipeline"] = "running"
+        st.session_state["result"] = None
+        st.session_state["main_state"] = "analyzing"
 
-Generate 5 YouTube content ideas that would perform well. Each idea should be a short title or concept.
+# Main Pane
+if "main_state" not in st.session_state:
+    st.session_state["main_state"] = "idle"
 
-Respond in this format:
+if st.session_state["main_state"] == "idle":
+    st.subheader("Welcome to TrendForge!")
+    st.markdown("""
+    **TrendForge** helps YouTube creators grow their audience with data-driven AI insights.
 
-Content Ideas:
-1. Idea 1
-2. Idea 2
-3. Idea 3
-4. Idea 4
-5. Idea 5
-""")
+    **How it works:**
+    1. Enter your niche and YouTube channel URL.
+    2. Discover relevant subreddits.
+    3. Select subreddits to analyze.
+    4. Run the pipeline → get trending topics, content ideas, optimized titles, and thumbnail concepts!
 
-content_ideas_chain = LLMChain(llm=llm, prompt=content_ideas_prompt)
+    👉 Start by entering your niche and channel URL in the sidebar.
+    """)
 
-# Optimized Titles Chain
-optimized_titles_prompt = PromptTemplate.from_template("""
-You are an expert YouTube content strategist.
+elif st.session_state["main_state"] == "analyzing":
+    st.subheader("Analyzing trends and generating content ideas...")
+    with st.spinner("Running TrendForge pipeline..."):
+        try:
+            # Extract channel info
+            channel_info = extract_channel_info(st.session_state["youtube_url_input"])
+            st.session_state["channel_description"] = channel_info.get("channel_description", "")
+            st.session_state["step_status"]["channel"] = "complete"
 
-Here are 5 content ideas:
+            # Run Pipeline
+            pipeline = Pipeline(
+                niche=st.session_state["niche_input"],
+                selected_subreddits=st.session_state["selected_subreddits"],
+                channel_description=st.session_state["channel_description"]
+            )
+            result = pipeline.run()
 
-{content_ideas}
+            st.session_state["result"] = result
+            st.session_state["step_status"]["pipeline"] = "complete"
+            st.session_state["main_state"] = "done"
 
-For each idea, write an optimized YouTube video title that is highly clickable and engaging.
+        except Exception as e:
+            st.error(f"Error running pipeline: {e}")
+            st.session_state["step_status"]["pipeline"] = f"error ({str(e)})"
+            st.session_state["main_state"] = "idle"
 
-Respond in this format:
+elif st.session_state["main_state"] == "done":
+    st.subheader("✅ Pipeline complete!")
+    result = st.session_state["result"]
 
-Optimized Titles:
-1. Title 1
-2. Title 2
-3. Title 3
-4. Title 4
-5. Title 5
-""")
+    # Trend Summary
+    st.header("📊 Trend Summary")
+    st.markdown(safe_extract_text(result.get("trend_summary", "No trend summary.")))
 
-optimized_titles_chain = LLMChain(llm=llm, prompt=optimized_titles_prompt)
+    # Content Plan
+    st.header("🎬 Content Plan")
+    content_ideas = result.get("content_ideas", [])
+    if content_ideas:
+        for idx, idea in enumerate(content_ideas, 1):
+            st.markdown(f"{idx}. {idea}")
+    else:
+        st.markdown("No content ideas.")
 
-# Thumbnail Ideas Chain
-thumbnail_ideas_prompt = PromptTemplate.from_template("""
-You are an expert YouTube content strategist.
+    # Optimized Titles
+    st.header("🧠 Optimized Titles")
+    optimized_titles = result.get("optimized_titles", [])
+    if optimized_titles:
+        for idx, title in enumerate(optimized_titles, 1):
+            st.markdown(f"{idx}. {title}")
+    else:
+        st.markdown("No optimized titles.")
 
-Here are 5 content ideas:
+    # Thumbnail Ideas
+    st.header("🎨 Thumbnail Ideas")
+    thumbnail_ideas = result.get("thumbnail_ideas", [])
+    if thumbnail_ideas:
+        for idx, idea in enumerate(thumbnail_ideas, 1):
+            st.markdown(f"{idx}. {idea}")
+    else:
+        st.markdown("No thumbnail ideas.")
 
-{content_ideas}
-
-For each idea, suggest a creative thumbnail concept that will attract clicks.
-
-Respond in this format:
-
-Thumbnail Ideas:
-1. Idea 1
-2. Idea 2
-3. Idea 3
-4. Idea 4
-5. Idea 5
-""")
-
-thumbnail_ideas_chain = LLMChain(llm=llm, prompt=thumbnail_ideas_prompt)
-
-# Pipeline Class
-class Pipeline:
-    def __init__(self, niche, selected_subreddits, channel_description):
-        self.niche = niche
-        self.selected_subreddits = selected_subreddits
-        self.channel_description = channel_description
-
-    def run(self):
-        print(f"--- Running Pipeline ---")
-        print(f"Niche: {self.niche}")
-        print(f"Selected subreddits: {self.selected_subreddits}")
-        print(f"Channel description: {self.channel_description}")
-
-        # Step 1: Trend Summary
-        trend_summary_result = trend_summary_chain.run({
-            "reddit_trends": ", ".join(self.selected_subreddits),
-            "google_trends": f"Top Google Trends for niche {self.niche}...",
-            "youtube_trends": f"Trending YouTube topics for niche {self.niche}...",
-            "channel_description": self.channel_description
-        })
-        print(f"Trend Summary Result:\n{trend_summary_result}\n")
-
-        # Step 2: Content Ideas
-        content_ideas_result = content_ideas_chain.run({
-            "trend_summary": trend_summary_result
-        })
-        print(f"Content Ideas Result:\n{content_ideas_result}\n")
-
-        # Step 3: Optimized Titles
-        optimized_titles_result = optimized_titles_chain.run({
-            "content_ideas": content_ideas_result
-        })
-        print(f"Optimized Titles Result:\n{optimized_titles_result}\n")
-
-        # Step 4: Thumbnail Ideas
-        thumbnail_ideas_result = thumbnail_ideas_chain.run({
-            "content_ideas": content_ideas_result
-        })
-        print(f"Thumbnail Ideas Result:\n{thumbnail_ideas_result}\n")
-
-        # Assemble the result
-        result = {
-            "trend_summary": {
-                "text": trend_summary_result
-            },
-            "content_ideas": self._extract_list(content_ideas_result),
-            "optimized_titles": self._extract_list(optimized_titles_result),
-            "thumbnail_ideas": self._extract_list(thumbnail_ideas_result),
+    st.divider()
+    if st.button("🔄 New Search", key="new_search_button"):
+        # Reset state
+        st.session_state["step_status"] = {
+            "subreddits": "pending",
+            "channel": "pending",
+            "pipeline": "pending"
         }
-
-        print(f"--- Pipeline Complete ---\n")
-        return result
-
-    def _extract_list(self, text_block):
-        # Helper to parse numbered lists from LLM output
-        lines = text_block.strip().split("\n")
-        extracted = []
-        for line in lines:
-            if line.strip() and (line.strip()[0].isdigit() or line.strip().startswith("-")):
-                # Remove number or dash prefix
-                item = line.split(".", 1)[-1].strip() if "." in line else line[1:].strip()
-                extracted.append(item)
-        return extracted
+        st.session_state["selected_subreddits"] = []
+        st.session_state["discovered_subreddits"] = []
+        st.session_state["result"] = None
+        st.session_state["main_state"] = "idle"
+        st.rerun()
