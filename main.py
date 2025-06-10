@@ -41,7 +41,7 @@ with st.sidebar.form(key="input_form"):
 # Handle Find Subreddits button
 if submit_button:
     st.session_state["step_status"]["subreddits"] = "in_progress"
-    st.experimental_rerun()
+    st.rerun()
 
 # Main pane
 main_placeholder = st.empty()
@@ -53,7 +53,7 @@ if st.session_state["step_status"]["subreddits"] == "in_progress":
         subreddits = discover_subreddits(niche_query)
         st.session_state["discovered_subreddits"] = subreddits
         st.session_state["step_status"]["subreddits"] = "complete"
-        st.experimental_rerun()
+        st.rerun()
 
 # Sidebar - show discovered subreddits if available
 if st.session_state["step_status"]["subreddits"] == "complete":
@@ -73,7 +73,7 @@ if st.session_state["step_status"]["subreddits"] == "complete":
     if st.sidebar.button("🚀 Run Pipeline"):
         st.session_state["step_status"]["pipeline"] = "in_progress"
         st.session_state["result"] = None
-        st.experimental_rerun()
+        st.rerun()
 
 # Main pane logic for pipeline
 if st.session_state["step_status"]["pipeline"] == "in_progress":
@@ -99,7 +99,7 @@ if st.session_state["step_status"]["pipeline"] == "in_progress":
             result = pipeline.run()
             st.session_state["result"] = result
             st.session_state["step_status"]["pipeline"] = "complete"
-            st.experimental_rerun()
+            st.rerun()
         except Exception as e:
             st.error(f"Error running pipeline: {e}")
             st.session_state["step_status"]["pipeline"] = "not_started"
