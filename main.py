@@ -44,6 +44,8 @@ if "result" not in st.session_state:
     st.session_state["result"] = None
 if "pipeline_running" not in st.session_state:
     st.session_state["pipeline_running"] = False
+if "trigger_pipeline" not in st.session_state:
+    st.session_state["trigger_pipeline"] = False
 
 # --- Sidebar: Step Flow ---
 with st.sidebar:
@@ -64,6 +66,7 @@ with st.sidebar:
         st.session_state["subreddits"] = []
         st.session_state["selected_subreddits"] = []
         st.session_state["pipeline_running"] = False
+        st.session_state["trigger_pipeline"] = False
         st.rerun()
 
     # --- Step 2 ---
@@ -76,13 +79,15 @@ with st.sidebar:
             st.session_state["selected_subreddits"] = subreddits  # select all by default
             st.session_state["result"] = None
             st.session_state["pipeline_running"] = False
+            st.session_state["trigger_pipeline"] = False
             st.rerun()
 
         if st.session_state["subreddits"]:
             selected = st.multiselect(
                 "Select subreddits to use for trend analysis:",
                 options=st.session_state["subreddits"],
-                default=st.session_state.get("selected_subreddits", st.session_state["subreddits"])
+                default=st.session_state.get("selected_subreddits", st.session_state["subreddits"]),
+                key="selected_subreddits_widget"
             )
             st.session_state["selected_subreddits"] = selected
         else:
@@ -93,21 +98,9 @@ with st.sidebar:
         st.subheader("Step 3️⃣ Run AI Pipeline")
         if st.button("🚀 Run Pipeline"):
             st.session_state["pipeline_running"] = True
+            st.session_state["trigger_pipeline"] = True  # flag to trigger actual run below
             st.session_state["result"] = None
-            with st.spinner("Running TrendForge pipeline..."):
-                try:
-                    pipeline = Pipeline(
-                        niche=niche_input,
-                        selected_subreddits=st.session_state["selected_subreddits"],
-                        channel_description=st.session_state["channel_description"]
-                    )
-                    result = pipeline.run()
-                    st.session_state["result"] = result
-                    st.session_state["pipeline_running"] = False
-                    st.success("✅ Pipeline complete!")
-                except Exception as e:
-                    st.error(f"Error running pipeline: {e}")
-                    st.session_state["pipeline_running"] = False
+            st.rerun()
 
     # --- New Search ---
     st.divider()
@@ -119,22 +112,43 @@ with st.sidebar:
         st.session_state["selected_subreddits"] = []
         st.session_state["result"] = None
         st.session_state["pipeline_running"] = False
+        st.session_state["trigger_pipeline"] = False
         st.rerun()
 
 # --- Main Pane Progress Flow ---
 if not st.session_state["channel_ready"]:
     st.info("👉 Please start with **Step 1** in the sidebar to Analyze Channel.")
 
-elif st.session_state["channel_ready"] and not st.session_state["subreddits"]:
-    st.info("✅ Channel analyzed! Now proceed to **Step 2** in sidebar: Discover Subreddits.")
-
-elif st.session_state["channel_ready"] and st.session_state["selected_subreddits"] and not st.session_state["pipeline_running"] and not st.session_state["result"]:
-    st.info("✅ Subreddits selected! Now proceed to **Step 3** in sidebar: Run Pipeline.")
-
 elif st.session_state["pipeline_running"]:
     st.info("🚀 Running TrendForge pipeline... please wait...")
 
-elif st.session_state["result"]:
+elif st.session_state["channel_ready"] and not st.session_state["subreddits"]:
+    st.info("✅ Channel analyzed! Now proceed to **Step 2** in sidebar: Discover Subreddits.")
+
+elif st.session_state["channel_ready"] and st.session_state["selected_subreddits"] and not st.session_state["result"]:
+    st.info("✅ Subreddits selected! Now proceed to **Step 3** in sidebar: Run Pipeline.")
+
+# --- Run pipeline logic ---
+if st.session_state["trigger_pipeline"]:
+    # Actually run the pipeline
+    try:
+        pipeline = Pipeline(
+            niche=niche_input,
+            selected_subreddits=st.session_state["selected_subreddits"],
+            channel_description=st.session_state["channel_description"]
+        )
+        result = pipeline.run()
+        st.session_state["result"] = result
+        st.session_state["pipeline_running"] = False
+        st.session_state["trigger_pipeline"] = False
+        st.success("✅ Pipeline complete!")
+    except Exception as e:
+        st.error(f"Error running pipeline: {e}")
+        st.session_state["pipeline_running"] = False
+        st.session_state["trigger_pipeline"] = False
+
+# --- Display Results ---
+if st.session_state["result"]:
     result = st.session_state["result"]
 
     def safe_extract_text(section) -> str:
@@ -149,7 +163,6 @@ elif st.session_state["result"]:
     optimized_titles_text = safe_extract_text(result.get("Optimized Titles"))
     thumbnail_ideas_text = safe_extract_text(result.get("Thumbnail Ideas"))
 
-    # --- Display Results ---
     st.subheader("📺 Channel Analysis")
     st.info(st.session_state["channel_description"])
 
