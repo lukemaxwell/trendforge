@@ -42,6 +42,8 @@ if "selected_subreddits" not in st.session_state:
     st.session_state["selected_subreddits"] = []
 if "result" not in st.session_state:
     st.session_state["result"] = None
+if "pipeline_running" not in st.session_state:
+    st.session_state["pipeline_running"] = False
 
 # --- Sidebar: Step Flow ---
 with st.sidebar:
@@ -61,6 +63,7 @@ with st.sidebar:
         st.session_state["result"] = None
         st.session_state["subreddits"] = []
         st.session_state["selected_subreddits"] = []
+        st.session_state["pipeline_running"] = False
         st.rerun()
 
     # --- Step 2 ---
@@ -72,6 +75,7 @@ with st.sidebar:
             st.session_state["subreddits"] = subreddits
             st.session_state["selected_subreddits"] = subreddits  # select all by default
             st.session_state["result"] = None
+            st.session_state["pipeline_running"] = False
             st.rerun()
 
         if st.session_state["subreddits"]:
@@ -88,6 +92,8 @@ with st.sidebar:
     if st.session_state["channel_ready"] and st.session_state["selected_subreddits"]:
         st.subheader("Step 3️⃣ Run AI Pipeline")
         if st.button("🚀 Run Pipeline"):
+            st.session_state["pipeline_running"] = True
+            st.session_state["result"] = None
             with st.spinner("Running TrendForge pipeline..."):
                 try:
                     pipeline = Pipeline(
@@ -97,9 +103,11 @@ with st.sidebar:
                     )
                     result = pipeline.run()
                     st.session_state["result"] = result
+                    st.session_state["pipeline_running"] = False
                     st.success("✅ Pipeline complete!")
                 except Exception as e:
                     st.error(f"Error running pipeline: {e}")
+                    st.session_state["pipeline_running"] = False
 
     # --- New Search ---
     st.divider()
@@ -110,18 +118,25 @@ with st.sidebar:
         st.session_state["subreddits"] = []
         st.session_state["selected_subreddits"] = []
         st.session_state["result"] = None
+        st.session_state["pipeline_running"] = False
         st.rerun()
 
-# --- Main Page Results ---
-if st.session_state["channel_ready"]:
-    st.subheader("📺 Channel Analysis")
-    st.info(st.session_state["channel_description"])
+# --- Main Pane Progress Flow ---
+if not st.session_state["channel_ready"]:
+    st.info("👉 Please start with **Step 1** in the sidebar to Analyze Channel.")
 
-# --- Display Pipeline Results ---
-if st.session_state["result"]:
+elif st.session_state["channel_ready"] and not st.session_state["subreddits"]:
+    st.info("✅ Channel analyzed! Now proceed to **Step 2** in sidebar: Discover Subreddits.")
+
+elif st.session_state["channel_ready"] and st.session_state["selected_subreddits"] and not st.session_state["pipeline_running"] and not st.session_state["result"]:
+    st.info("✅ Subreddits selected! Now proceed to **Step 3** in sidebar: Run Pipeline.")
+
+elif st.session_state["pipeline_running"]:
+    st.info("🚀 Running TrendForge pipeline... please wait...")
+
+elif st.session_state["result"]:
     result = st.session_state["result"]
 
-    # --- Define safe extractor ---
     def safe_extract_text(section) -> str:
         if isinstance(section, dict):
             return section.get("text", "No data.")
@@ -129,13 +144,15 @@ if st.session_state["result"]:
             return section
         return "No data."
 
-    # --- Extract fields ---
     trend_summary_text = safe_extract_text(result.get("Trend Summary"))
     content_ideas_text = safe_extract_text(result.get("Content Ideas"))
     optimized_titles_text = safe_extract_text(result.get("Optimized Titles"))
     thumbnail_ideas_text = safe_extract_text(result.get("Thumbnail Ideas"))
 
-    # --- Display ---
+    # --- Display Results ---
+    st.subheader("📺 Channel Analysis")
+    st.info(st.session_state["channel_description"])
+
     st.subheader("📊 Trend Summary")
     st.markdown(trend_summary_text, unsafe_allow_html=True)
 
