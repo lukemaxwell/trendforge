@@ -2,10 +2,12 @@ import streamlit as st
 from agents import Pipeline
 from tools import discover_subreddits, extract_channel_info
 
-# Helper to safely extract text
+# Improved safe_extract_text
 def safe_extract_text(value):
     if isinstance(value, dict) and "text" in value:
         return value["text"]
+    elif isinstance(value, list):
+        return "\n".join(str(item) for item in value)
     elif isinstance(value, str):
         return value
     else:
