@@ -191,6 +191,10 @@ venv/
 .venv/
 
 # Terraform
-*.terraform/*
+**/.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+.terraform/
 *.tfvars
 *.tfvars.json
