@@ -198,3 +198,8 @@ venv/
 .terraform/
 *.tfvars
 *.tfvars.json
+
+# Streamlit
+**/.streamlit/
+.streamlit/
+
