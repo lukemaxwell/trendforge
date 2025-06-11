@@ -1,8 +1,8 @@
-# 🔥 TrendForge
+# 🔥 TrendSleuth
 
-Your AI Growth Companion for YouTube 🚀
+Your AI Growth Companion 🚀
 
-TrendForge helps YouTube creators grow their channels using the power of AI and trend analysis.
+TrendSleuth helps YouTube creators grow their channels using the power of AI and trend analysis.
 
 ✨ Analyze your channel  
 📈 Discover hot trends across **Reddit**, **Google**, and **YouTube**  
@@ -33,16 +33,25 @@ TrendForge helps YouTube creators grow their channels using the power of AI and 
 
 ---
 
+## Build images
+```bash
+# For Streamlit:
+gcloud builds submit --tag gcr.io/youtubeaccelerator/trendsleuth-streamlit ./app/streamlit-app
+
+# For FastAPI Webhook:
+gcloud builds submit --tag gcr.io/youtubeaccelerator/trendsleuth-stripe-webhook ./app/stripe-webhook
+```
+
 ## Run locally:
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_ACCOUNT/trendforge.git
+git clone https://github.com/lukemaxwell/trendforge.git
 cd trendforge
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Add your secrets to .streamlit/secrets.toml:
+# Add secrets to .streamlit/secrets.toml:
 
 [default]
 OPENAI_API_KEY = "sk-..."

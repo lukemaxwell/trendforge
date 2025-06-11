@@ -187,3 +187,10 @@ fabric.properties
 # Virtual Environment
 venv
 venv/
+.venv
+.venv/
+
+# Terraform
+.terraform/
+.tfvars
+.tfvars.json
