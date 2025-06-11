@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrendSleuth - create tomorrow's viral content. Today.</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Animated Background -->
+    <canvas class="bg-animation" id="bg-canvas"></canvas>
+    
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav">
+            <div class="logo">🔍 TrendSleuth</div>
+            <div class="nav-right">
+                <a href="javascript:void(0);" id="login-button" class="nav-login">Login</a>
+                <a href="javascript:void(0);" id="logout-button" class="nav-login">Logout</a>
+                <a href="#cta" class="nav-cta">Start Free Trial</a>
+            </div>
+        </nav>
+    </header>
+    
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">Create tomorrow's viral content. Today.</h1>
+            <p class="hero-subtitle">
+                TrendSleuth analyzes conversations on Reddit, YouTube & Google — and generates content ideas that your audience <strong>actually cares about</strong>.
+            </p>
+            <div class="cta-group">
+                <a href="#cta" class="cta-primary">Get TrendSleuth Now</a>
+                <a href="#demo" class="cta-secondary">Watch Demo</a>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Problem Section -->
+    <section class="problem">
+        <div class="container">
+            <div class="problem-content">
+                <h2 class="section-title">The Problem</h2>
+                <p class="section-text">
+                    Brands and creators miss what their audience <strong>actually cares about</strong>. 
+                </p>
+                <p class="section-text">
+                    SEO tools → too <strong>slow</strong>.
+                </p>
+                <p class="section-text">
+                    Other AI tools → too <strong>generic</strong>.
+                </p>
+                <p class="section-text">
+                    New content → already <strong>out-dated</strong>.
+                </p>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Solution Section -->
+    <section class="solution">
+        <div class="container">
+            <div class="solution-grid">
+                <div class="solution-content">
+                    <h2>TrendSleuth = Leading Indicators → Content Edge</h2>
+                    <p>
+                        TrendSleuth analyzes communities in real time and provides optimised content suggestions that will engage and drive audience.
+                    </p>
+                </div>
+                <div class="comparison">
+                    <div class="comparison-item">
+                        <div class="comparison-icon leading">✓</div>
+                        <div>
+                            <strong>TrendSleuth:</strong> Community conversations → <span style="color: #1a1a1a;">Leading Indicator</span>
+                        </div>
+                    </div>
+                    <div class="comparison-item">
+                        <div class="comparison-icon trailing">✗</div>
+                        <div>
+                            <strong>SEO Tools:</strong> Search behavior → <span style="color: #999999;">Trailing Indicator</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Process Section -->
+    <section class="process">
+        <div class="container">
+            <h2>How It Works</h2>
+            <div class="process-steps">
+                <div class="step floating">
+                    <div class="step-number">1</div>
+                    <h3>Enter Niche</h3>
+                    <p>Auto-discover relevant subreddits and communities in your space</p>
+                </div>
+                <div class="step floating">
+                    <div class="step-number">2</div>
+                    <h3>Mine Trends</h3>
+                    <p>Extract trending topics from Reddit, Google, and YouTube conversations</p>
+                </div>
+                <div class="step floating">
+                    <div class="step-number">3</div>
+                    <h3>Generate Content</h3>
+                    <p>Get complete content plans with titles, thumbnails, and scripts</p>
+                </div>
+                <div class="step floating">
+                    <div class="step-number">4</div>
+                    <h3>Deploy & Win</h3>
+                    <p>Launch content ahead of trends and beat your competition</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Final CTA Section -->
+    <section class="final-cta" id="cta">
+        <div class="container">
+            <h2>Get Ahead of Trends</h2>
+            <p>
+                Stop chasing yesterday's trends. Start creating tomorrow's viral content today.
+            </p>
+            <div class="cta-group">
+                <a href="#" class="cta-primary">Start Free Trial</a>
+                <a href="#" class="cta-secondary">Book Demo</a>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 TrendSleuth. All rights reserved.</p>
+        </div>
+    </footer>
+    
+    <script src="/js/script.js"></script>
+    <script type="module">
+      import { loginWithGoogle, logout } from '/js/firebase.js?v=1';
+
+      // DOM elements
+      const loginButton = document.getElementById('login-button');
+      const logoutButton = document.getElementById('logout-button');
+
+      // Function to update button visibility
+      function updateAuthUI() {
+        const token = localStorage.getItem('firebase_id_token');
+        if (token) {
+          loginButton.style.display = 'none';
+          logoutButton.style.display = 'inline-block';
+        } else {
+          loginButton.style.display = 'inline-block';
+          logoutButton.style.display = 'none';
+        }
+      }
+
+      // Hook up button events
+      loginButton.addEventListener('click', async () => {
+        await loginWithGoogle();
+        updateAuthUI();
+      });
+
+      logoutButton.addEventListener('click', () => {
+        logout();
+        updateAuthUI();
+      });
+
+      // Initial update on page load
+      updateAuthUI();
+    </script>
+</body>
+</html>
