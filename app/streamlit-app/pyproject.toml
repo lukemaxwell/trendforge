@@ -1,0 +1,20 @@
+[project]
+name = "streamlit-app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "firebase-admin>=6.9.0",
+    "google-auth>=2.40.3",
+    "google-cloud-firestore>=2.21.0",
+    "langchain>=0.3.25",
+    "langchain-openai>=0.3.22",
+    "nltk>=3.9.1",
+    "praw>=7.8.1",
+    "python-dotenv>=1.1.0",
+    "pytrends>=4.9.2",
+    "requests>=2.32.4",
+    "streamlit>=1.45.1",
+    "yt-dlp>=2025.6.9",
+]
