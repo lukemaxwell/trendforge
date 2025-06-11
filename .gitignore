@@ -191,6 +191,6 @@ venv/
 .venv/
 
 # Terraform
-.terraform/
-.tfvars
-.tfvars.json
+.terraform/*
+*.tfvars
+*.tfvars.json
